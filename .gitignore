@@ -1,4 +1,4 @@
 # compilation results
-.lst
-.cod
-.hex
+*.lst
+*.cod
+*.hex

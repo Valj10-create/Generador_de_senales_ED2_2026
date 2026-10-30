@@ -1,0 +1,258 @@
+
+# This file was written by gpsim.
+
+# You can use this file for example like this:
+#     gpsim -s mycode.cod -c netlist.stc
+
+# If you want to add commands, you can create another .stc file
+# and load this file from it. Something like this:
+# ----------- myproject.stc ---------------
+# load s mycode.cod
+# frequency 12000000
+# load c netlist.stc
+# -----------------------------------------
+# You can then just load this new file:
+#     gpsim -c myproject.stc
+# and use netlist.stc whenever you save from the breadboard.
+#
+
+
+# Processor position:
+module library libgpsim_modules
+
+
+# Modules:
+p16f887.BreakOnReset = true
+p16f887.SafeMode = true
+p16f887.UnknownMode = true
+p16f887.WarnMode = true
+p16f887.tmr1_freq = 32768
+p16f887.xpos = 72
+p16f887.ypos = 72
+
+module load switch s0
+s0.Rclosed = 10
+s0.Ropen = 1e+08
+s0.state = closed
+s0.xpos = 360
+s0.ypos = 306
+
+module load switch s1
+s1.Rclosed = 10
+s1.Ropen = 1e+08
+s1.state = open
+s1.xpos = 450
+s1.ypos = 306
+
+module load switch s2
+s2.Rclosed = 10
+s2.Ropen = 1e+08
+s2.state = open
+s2.xpos = 540
+s2.ypos = 306
+
+module load switch s3
+s3.Rclosed = 10
+s3.Ropen = 1e+08
+s3.state = open
+s3.xpos = 630
+s3.ypos = 306
+
+module load switch s4
+s4.Rclosed = 10
+s4.Ropen = 1e+08
+s4.state = open
+s4.xpos = 360
+s4.ypos = 360
+
+module load switch s5
+s5.Rclosed = 10
+s5.Ropen = 1e+08
+s5.state = open
+s5.xpos = 450
+s5.ypos = 360
+
+module load switch s6
+s6.Rclosed = 10
+s6.Ropen = 1e+08
+s6.state = open
+s6.xpos = 540
+s6.ypos = 360
+
+module load switch s7
+s7.Rclosed = 10
+s7.Ropen = 1e+08
+s7.state = open
+s7.xpos = 630
+s7.ypos = 360
+
+module load switch s8
+s8.Rclosed = 10
+s8.Ropen = 1e+08
+s8.state = open
+s8.xpos = 360
+s8.ypos = 414
+
+module load switch s9
+s9.Rclosed = 10
+s9.Ropen = 1e+08
+s9.state = open
+s9.xpos = 450
+s9.ypos = 414
+
+module load switch s10
+s10.Rclosed = 10
+s10.Ropen = 1e+08
+s10.state = open
+s10.xpos = 540
+s10.ypos = 414
+
+module load switch s11
+s11.Rclosed = 10
+s11.Ropen = 1e+08
+s11.state = open
+s11.xpos = 630
+s11.ypos = 414
+
+module load switch s12
+s12.Rclosed = 10
+s12.Ropen = 1e+08
+s12.state = open
+s12.xpos = 360
+s12.ypos = 468
+
+module load switch s13
+s13.Rclosed = 10
+s13.Ropen = 1e+08
+s13.state = open
+s13.xpos = 450
+s13.ypos = 468
+
+module load switch s14
+s14.Rclosed = 10
+s14.Ropen = 1e+08
+s14.state = open
+s14.xpos = 540
+s14.ypos = 468
+
+module load switch s15
+s15.Rclosed = 10
+s15.Ropen = 1e+08
+s15.state = open
+s15.xpos = 630
+s15.ypos = 468
+
+module load led_7segments disp0
+disp0.xpos = 306
+disp0.ypos = 72
+
+module load led_7segments disp1
+disp1.xpos = 450
+disp1.ypos = 72
+
+module load led_7segments disp2
+disp2.xpos = 594
+disp2.ypos = 72
+
+module load led_7segments disp3
+disp3.xpos = 738
+disp3.ypos = 72
+
+module load pullup pullup4
+pullup4.capacitance = 0
+pullup4.resistance = 10000
+pullup4.voltage = 5
+pullup4.xpos = 270
+pullup4.ypos = 270
+
+module load not not0
+not0.xpos = 234
+not0.ypos = 72
+
+module load not not1
+not1.xpos = 234
+not1.ypos = 72
+
+module load not not2
+not2.xpos = 234
+not2.ypos = 72
+
+module load not not3
+not3.xpos = 234
+not3.ypos = 72
+
+
+# Connections:
+node d0
+attach d0 disp0.seg0 disp1.seg0 disp2.seg0 disp3.seg0 p16f887.portd0
+
+node d1
+attach d1 disp0.seg1 disp1.seg1 disp2.seg1 disp3.seg1 p16f887.portd2
+
+node d2
+attach d2 disp0.seg2 disp1.seg2 disp2.seg2 disp3.seg2 p16f887.portd5
+
+node d3
+attach d3 disp0.seg3 disp1.seg3 disp2.seg3 disp3.seg3 p16f887.portd6
+
+node d4
+attach d4 disp0.seg4 disp1.seg4 disp2.seg4 disp3.seg4 p16f887.portd4
+
+node d5
+attach d5 disp0.seg5 disp1.seg5 disp2.seg5 disp3.seg5 p16f887.portd1
+
+node d6
+attach d6 disp0.seg6 disp1.seg6 disp2.seg6 disp3.seg6 p16f887.portd3
+
+node d7
+attach d7 p16f887.portd7
+
+node c0
+attach c0 p16f887.portc0 not0.in0
+
+node c1
+attach c1 p16f887.portc1 not1.in0
+
+node c2
+attach c2 p16f887.portc2 not2.in0
+
+node c3
+attach c3 p16f887.portc3 not3.in0
+
+node kb_r_0
+attach kb_r_0 s0.B s1.B s2.B s3.B p16f887.portb0
+
+node kb_r_1
+attach kb_r_1 s4.B s5.B s6.B s7.B p16f887.portb1
+
+node kb_r_2
+attach kb_r_2 s8.B s9.B s10.B s11.B p16f887.portb2
+
+node kb_r_3
+attach kb_r_3 s12.B s13.B s14.B s15.B p16f887.portb3
+
+node kb_c_0
+attach kb_c_0 s0.A s4.A s8.A s12.A p16f887.portb4 pullup4.pin
+
+node kb_c_1
+attach kb_c_1 s1.A s5.A s9.A s13.A p16f887.portb5
+
+node kb_c_2
+attach kb_c_2 s2.A s6.A s10.A s14.A p16f887.portb6
+
+node kb_c_3
+attach kb_c_3 s3.A s7.A s11.A s15.A p16f887.portb7
+
+node disp0cc
+attach disp0cc not0.out disp0.cc
+
+node disp1cc
+attach disp1cc not1.out disp1.cc
+
+node disp2cc
+attach disp2cc not2.out disp2.cc
+
+node disp3cc
+attach disp3cc not3.out disp3.cc
+
+# End.
