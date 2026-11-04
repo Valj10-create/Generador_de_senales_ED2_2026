@@ -50,14 +50,12 @@ temp_status EQU 0x72
 time_instant_counter EQU 0x73
 
 SCON 	EQU 	0X75
-STYP0 	EQU 	1
-STYP1 	EQU 	2
-SFRC0 	EQU 	3
-SFRC1 	EQU 	4
-SFRC2 	EQU 	5
+STYP0 	EQU 	2
+STYP1 	EQU 	3
+SFRC0 	EQU 	4
+SFRC1 	EQU 	5
+SFRC2 	EQU 	6
 SENA	EQU	7
-
-
 
         __CONFIG _CONFIG1, _HS_OSC & _WDT_OFF & _PWRTE_OFF & _CP_OFF & _CPD_OFF & _BOR_ON & _LVP_OFF
         __CONFIG _CONFIG2, _BOR4V_BOR21V & _WRT_OFF
@@ -71,23 +69,21 @@ SENA	EQU	7
         ORG     0X05
 
 get_tmr1_prel_l:
-	RETURN
-	ANDWF	b'00000111', W	; enmascaro para limitar a 8 valores
+	ANDLW	b'00000111'	; enmascaro para limitar a 8 valores
 	ADDWF	PCL, F 		; incremento program counter
-	RETLW	0XD5
-	RETLW	0X13
-	RETLW	0X7D
-	RETLW	0X05
-	RETLW	0X76
-	RETLW	0X16
-	RETLW	0X8D
-	RETLW	0XA8
-	
+	RETLW	0X11
+	RETLW	0X4F
+	RETLW	0XB9
+	RETLW	0X41
+	RETLW	0XB2
+	RETLW	0X52
+	RETLW	0XC9
+	RETLW	0XE4
 	
 get_tmr1_prel_h:
-	ANDWF	b'00000111', W	; enmascaro para limitar a 8 valores
+	ANDLW	b'00000111'	; enmascaro para limitar a 8 valores
 	ADDWF	PCL, F 		; incremento program counter
-	RETLW	0X85
+	RETLW	0X86
 	RETLW	0XCF
 	RETLW	0XE7
 	RETLW	0XFB
@@ -108,7 +104,7 @@ get_squr_value:
 
 	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
 	ANDLW	b'00010000'	; enmascaro el 5to bit
-	BTFSS	STATUS, Z	; si W fue cero, entonces el numero era menor a 16
+	BTFSC	STATUS, Z	; si W fue cero, entonces el numero era menor a 16
 	RETLW	.0
 	RETLW	.255		; else el numero era mayor
 
@@ -122,45 +118,40 @@ get_squr_value:
 ;
 	
 get_trng_value:
-
-	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
-	MOVWF	temp_work_f
-	ANDLW	b'00010000'	; enmascaro el 5to bit
-	BTFSC	STATUS, Z	; si W fue cero, entonces el numero era menor a 16
-	GOTO	get_trng_value_dn
-
-get_trng_value_up:
-
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-
-	MOVF	temp_work_f, W
-	
-	RETURN
-	
-get_trng_value_dn:
-	
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-
-	COMF	temp_work_f, F
-	INCF	temp_work_f, F
-	MOVLW	.255
-	ADDWF	temp_work_f, W
-
-	RETURN
+	ANDLW	b'00011111'	; mask the index to 0..31
+	ADDWF	PCL, F
+	RETLW	.0		; x=0   0x00
+	RETLW	.16		; x=1   0x10
+	RETLW	.32		; x=2   0x20
+	RETLW	.48		; x=3   0x30
+	RETLW	.64		; x=4   0x40
+	RETLW	.80		; x=5   0x50
+	RETLW	.96		; x=6   0x60
+	RETLW	.112		; x=7   0x70
+	RETLW	.128		; x=8   0x80
+	RETLW	.143		; x=9   0x8F
+	RETLW	.159		; x=10  0x9F
+	RETLW	.175		; x=11  0xAF
+	RETLW	.191		; x=12  0xBF
+	RETLW	.207		; x=13  0xCF
+	RETLW	.223		; x=14  0xDF
+	RETLW	.239		; x=15  0xEF
+	RETLW	.255		; x=16  0xFF
+	RETLW	.239		; x=17  0xEF
+	RETLW	.223		; x=18  0xDF
+	RETLW	.207		; x=19  0xCF
+	RETLW	.191		; x=20  0xBF
+	RETLW	.175		; x=21  0xAF
+	RETLW	.159		; x=22  0x9F
+	RETLW	.143		; x=23  0x8F
+	RETLW	.128		; x=24  0x80
+	RETLW	.112		; x=25  0x70
+	RETLW	.96		; x=26  0x60
+	RETLW	.80		; x=27  0x50
+	RETLW	.64		; x=28  0x40
+	RETLW	.48		; x=29  0x30
+	RETLW	.32		; x=30  0x20
+	RETLW	.16		; x=31  0x10
 	
 ;
 ; Devuelve un valor entre 0-255 que corresponde a una funcion diente de sierra, dado
@@ -177,7 +168,7 @@ get_swth_value:
 	BCF	STATUS, C
 	RLF	temp_work_f, F
 	BCF	STATUS, C
-	RLF	temp_work_f, F
+	RLF	temp_work_f, W
 	
 	RETURN			; es directamente el valor del contador
 	
@@ -236,7 +227,7 @@ int:
 
 	BANKSEL PIR1
 	BTFSC	PIR1, TMR1IF	; interrupcion causada por timer1?
-	GOTO	tmr1_handle
+	CALL	tmr1_handle
 
 	SWAPF	temp_status, W
 	MOVWF	STATUS
@@ -253,6 +244,9 @@ tmr1_handle:
 	BANKSEL PIE1
 	BTFSS	PIE1, TMR1IE	; interrupciones por timer1 habilitadas?
 	RETURN			; no, ignorar
+
+	BANKSEL PIR1
+	BCF	PIR1, TMR1IF	; bajo la bandera
 
 	CALL	reset_timer1
 
@@ -307,6 +301,7 @@ get_func_value:
 
 reset_timer1:
 
+	BANKSEL T1CON
 	BCF	T1CON, TMR1ON	; apago el timer momentaneamente
 
 	BANKSEL 0
@@ -316,6 +311,7 @@ reset_timer1:
 	MOVF	tmr1_preload_h, W
 	MOVWF	TMR1H		; reinicio el timer con su respectiva precarga
 
+	BANKSEL T1CON
 	BSF	T1CON, TMR1ON	; enciendo el timer
 
 	RETURN	
@@ -329,18 +325,16 @@ setup:
 
 	CLRF	SCON
 
-	BCF	SCON, STYP0
-	BCF	SCON, STYP1	; forma de onda cuadrada seleccionada
-
-	BCF	SCON, SFRC0
-	BCF	SCON, SFRC1
-	BCF	SCON, SFRC2	; frecuencia de 1Hz seleccionada
-
-	MOVLW	b'00111000'	; enmascaro bits que me dan la frecuencia
+	MOVLW	b'01110000'	; enmascaro bits que me dan la frecuencia
 	ANDWF	SCON, W		; obtengo frecuencia seleccionada
 	MOVWF	temp_work_f	; muevo a un registro temporario
+	BCF	STATUS, C
 	RRF	temp_work_f, F 	; roto dos veces para mover los bits de interes
+	BCF	STATUS, C
 	RRF	temp_work_f, F 	; al nibble inferior del byte
+	BCF	STATUS, C
+	RRF	temp_work_f, F 	; al nibble inferior del byte
+	BCF	STATUS, C
 	RRF	temp_work_f, F 	; al nibble inferior del byte
 	
 	MOVF	temp_work_f, W	
@@ -364,12 +358,11 @@ setup:
 	BANKSEL T1CON
 
 	BCF	T1CON, TMR1GE	; timer no se rige por gate
-	BSF	T1CON, T1CKPS1	
-	BSF	T1CON, T1CKPS0	; [11] Prescaler 8
+	BCF	T1CON, T1CKPS1	
+	BCF	T1CON, T1CKPS0	; [00] Prescaler 1
 	BCF	T1CON, T1OSCEN	; oscilador LP apagado
 	BCF	T1CON, TMR1CS	; usa clock interno
 	BCF	T1CON, TMR1ON	; timer apagado
-
 	
 	CLRF	TMR1H
 	CLRF	TMR1L		; limpio contadores del timer
@@ -379,6 +372,8 @@ setup:
 	BANKSEL PIE1
 	BSF	PIE1, TMR1IE	; interrupciones por timer1 habilitadas
 
+	CALL	reset_timer1
+	
 ; Inicializacion de variables --------------------------------------
 
 	CLRF	time_instant_counter
@@ -394,5 +389,6 @@ setup:
 ; Punto de entrada del programa, rutina principal
 ;
 
-main: 	GOTO	main
+main: 	NOP
+	GOTO	main
 	END
