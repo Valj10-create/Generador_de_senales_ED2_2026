@@ -1,7 +1,24 @@
 LIST p=16f887
 #include <p16f887.inc>
 
-; TP FINAL >:(
+; TP Final - Electronica Digital 2
+
+; Autores:
+; 	Camila Abril Dei Rossi
+; 	Martina Montovani Castiglia
+; 	Valentino Gorordo
+; 	Vicente Gauna
+
+; Descripcion ======================================================================================================
+;
+; Codigo fuente para un generador de señales. Se tiene un DAC conectado a las salidas del PORTB de manera que se
+; puedan generar señales analogicas de 4 formas de onda diferentes: cuadrada, triangular, sinusoidal y diente de
+; sierra.
+; Adicionalmente se tiene un ADC que recibe la señal de salida del DAC y la muestrea para enviar a traves de
+; protocolo serial a un dispositivo conectado.
+; Se tienen un display de 7 segmentos de 4 digitos y un teclado matricial 4x4 para la configuración inicial del
+; dispositivo.
+;
 ; Este programa asume que los segmentos del display corresponden a los bits del puerto D como sigue:
 ;	 --	-> 0
 ;	|  |	-> 1,2
@@ -10,6 +27,23 @@ LIST p=16f887
 ;	 --  .	-> 6,7
 ; Para conectar debo corroborar con la hoja de datos del display para asegurarme que mapeo correctamente
 ; a los pines correspondientes del display
+;
+; Todo el tiempo estoy multiplexando entre los displays cada 5ms (20ms para una vuelta), osea:
+; C0	C1	C2	C3
+; 1 	0 	0 	0
+; 0 	1 	0 	0
+; ...
+; esto sucede cada vez que se produce interrupcion por timer0
+;
+; Escuchar el puerto donde esta el teclado
+; Ponemos RB0-RB3 a LOW (0)
+; Escuchamos interrupciones porducidas en RB4-RB7
+; Dentro de la rutina de interrupcion realizamos un barrido entre RB0-RB3 para ver que fila y columna se pulsó
+;
+; En 4 registros aparte almacenamos los valores que tiene cada uno de los displays
+; cuando se detecta un boton nuevo se rotan los valores a traves de los registros, se descarta el último y se 
+; inserta el nuevo valor al principio
+; ==================================================================================================================
 
 CBLOCK 0X20
 	row
@@ -31,7 +65,8 @@ CBLOCK 0X70
 	cy
 ENDC
 
-	__CONFIG _CONFIG1, _WDT_OFF & _XT_OSC & _LVP_OFF	
+	__CONFIG _CONFIG1, _XT_OSC & _WDT_OFF & _PWRTE_OFF & _MCLR_ON & _CP_OFF & _CPD_OFF & _BOR_ON & _LVP_OFF	
+	__CONFIG _CONFIG2, _BOR4V_BOR21V & _WRT_OFF
 	
 	ORG	0X00
 	GOTO	setup
@@ -40,7 +75,11 @@ ENDC
 	GOTO	int
 
 	ORG	0X05
-	
+
+;
+; Tabla de traduccion de numero a digitos encendidos en el display de 7 segmentos	
+;
+
 table:	ANDLW	b'00001111'	; limito w a 4 bits, para evitar errores de aumento en el PCL
 	ADDWF	PCL, F		; sumar el numero en w al program counter, esto selecciona el numero que mostraremos
 				; en el display de 7 segmentos
@@ -61,7 +100,9 @@ table:	ANDLW	b'00001111'	; limito w a 4 bits, para evitar errores de aumento en 
 	RETLW	b'01011011'     ; E
 	RETLW	b'00011011'     ; F
 
-; -------------- RUTINA DE INTERRUPCIÓN -------------------
+;
+; Rutina de interrupcion
+;
 
 int:	MOVWF	temp_w
 	SWAPF	temp_w, F 		; movf altera banderas de STATUS, estoy modificando la info sin querer
@@ -72,7 +113,7 @@ int:	MOVWF	temp_w
 	BCF	STATUS, IRP
 	
 	BTFSC	INTCON, T0IF		; El timer lanzó la interrupción?
-	CALL	timer_handle		; Sí
+	CALL	timer0_handle		; Sí
 
 	BTFSC	INTCON, RBIF		; El puerto B cambió?
 	CALL 	button_handle		; Si
@@ -87,7 +128,9 @@ int:	MOVWF	temp_w
 	
 	RETFIE				; regreso de la interrupcion a la direccion del codigo que se estaba ejecutando
 
-; ---------------------------------------------------------
+;
+; Manejador de interrupcion por TIMER1
+;
 
 timer1_handle:
 
@@ -106,10 +149,12 @@ timer1_handle:
 	GOTO	cont_button_handle	
 
 	RETURN
-	
-; ------------ INTERRUPCION POR TIMER ---------------------
 
-timer_handle:
+;	
+; Manejador de interrupcion por TIMER0
+;
+
+timer0_handle:
 	BTFSS	INTCON, T0IE		; el timer estaba habilitado?
 	RETURN				; no, no reacciono
 
@@ -420,21 +465,6 @@ setup:
 	BSF	INTCON, GIE	; habilito interrupciones
 		
 main:	
-	; Todo el tiempo estoy multiplexando entre los displays cada 5ms (20ms para una vuelta), osea:
-	; C0	C1	C2	C3
-	; 1 	0 	0 	0
-	; 0 	1 	0 	0
-	; ...
-	; esto sucede cada vez que se produce interrupcion por timer0
-
-	; Escuchar el puerto donde esta el teclado
-	; Ponemos RB0-RB3 a LOW (0)
-	; Escuchamos interrupciones porducidas en RB4-RB7
-	; Dentro de la rutina de interrupcion realizamos un barrido entre RB0-RB3 para ver que fila y columna se pulsó
-
-	; En 4 registros aparte almacenamos los valores que tiene cada uno de los displays
-	; cuando se detecta un boton nuevo se rotan los valores a traves de los registros, se descarta el último y se 
-	; inserta el nuevo valor al principio
  	  
 	GOTO	main
 	END
