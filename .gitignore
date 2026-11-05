@@ -2,3 +2,7 @@
 *.lst
 *.cod
 *.hex
+
+/bin
+
+~$*.xlsx

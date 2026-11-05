@@ -325,6 +325,13 @@ setup:
 
 	CLRF	SCON
 
+	BSF	SCON, STYP1 
+	BSF	SCON, STYP0
+	
+	BSF	SCON, SFRC2 
+	BSF	SCON, SFRC1 
+	BSF	SCON, SFRC0 
+	
 	MOVLW	b'01110000'	; enmascaro bits que me dan la frecuencia
 	ANDWF	SCON, W		; obtengo frecuencia seleccionada
 	MOVWF	temp_work_f	; muevo a un registro temporario
