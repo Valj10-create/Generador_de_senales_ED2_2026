@@ -38,16 +38,13 @@
 ; 
 ; ============================================================================================================
 
-LIST p=16f887
-#include <p16f887.inc>
 
-tmr1_preload_l EQU 0X20
-tmr1_preload_h EQU 0X21
+dac_tmr1_preload_l EQU 0X20
+dac_tmr1_preload_h EQU 0X21
 
-temp_work_f EQU	0x70
-temp_w EQU 0x71
-temp_status EQU 0x72
-time_instant_counter EQU 0x73
+temp_work_f EQU	0x74
+
+INST EQU 0x73
 
 SCON 	EQU 	0X75
 STYP0 	EQU 	2
@@ -57,18 +54,13 @@ SFRC1 	EQU 	5
 SFRC2 	EQU 	6
 SENA	EQU	7
 
-        __CONFIG _CONFIG1, _HS_OSC & _WDT_OFF & _PWRTE_OFF & _CP_OFF & _CPD_OFF & _BOR_ON & _LVP_OFF
-        __CONFIG _CONFIG2, _BOR4V_BOR21V & _WRT_OFF
 
-        ORG     0X00
-        GOTO    setup
+;
+; Devuelve el valor de precarga para el byte menos significativo del timer1
+; según la frecuencia seleccionada
+;
 
-        ORG     0X04
-        GOTO    int
-
-        ORG     0X05
-
-get_tmr1_prel_l:
+dac_get_tmr1_prel_l:
 	ANDLW	b'00000111'	; enmascaro para limitar a 8 valores
 	ADDWF	PCL, F 		; incremento program counter
 	RETLW	0X11
@@ -80,7 +72,12 @@ get_tmr1_prel_l:
 	RETLW	0XC9
 	RETLW	0XE4
 	
-get_tmr1_prel_h:
+;
+; Devuelve el valor de precarga para el byte mas significativo del timer1
+; según la frecuencia seleccionada
+;
+
+dac_get_tmr1_prel_h:
 	ANDLW	b'00000111'	; enmascaro para limitar a 8 valores
 	ADDWF	PCL, F 		; incremento program counter
 	RETLW	0X86
@@ -100,7 +97,7 @@ get_tmr1_prel_h:
 ;	 | 255 si  x >= 16
 ;
 
-get_squr_value:
+dac_get_squr_value:
 
 	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
 	ANDLW	b'00010000'	; enmascaro el 5to bit
@@ -117,7 +114,7 @@ get_squr_value:
 ;	 | -16x  si  x >= 16
 ;
 	
-get_trng_value:
+dac_get_trng_value:
 	ANDLW	b'00011111'	; mask the index to 0..31
 	ADDWF	PCL, F
 	RETLW	.0		; x=0   0x00
@@ -160,7 +157,7 @@ get_trng_value:
 ; f(x) = 8x
 ;
 
-get_swth_value:
+dac_get_swth_value:
 	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
 
 	BCF	STATUS, C
@@ -179,7 +176,7 @@ get_swth_value:
 ; f(x) = 127.5 + 127.5·sin(2πx/32)
 ;
 
-get_sine_value:
+dac_get_sine_value:
 	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
 	ADDWF	PCL, F
 	RETLW   .128		; x=0   0x80
@@ -219,27 +216,19 @@ get_sine_value:
 ; Subrutina de interrupción
 ;
 
-int:
-	MOVWF	temp_w
-	SWAPF	temp_w, F
-	SWAPF	STATUS, W
-	MOVWF	temp_status	; guardar contexto
+dac_int:
 
 	BANKSEL PIR1
 	BTFSC	PIR1, TMR1IF	; interrupcion causada por timer1?
-	CALL	tmr1_handle
+	CALL	dac_tmr1_handle
 
-	SWAPF	temp_status, W
-	MOVWF	STATUS
-	SWAPF	temp_w, W	; restablecer contexto
-
-	RETFIE
+	RETURN
 
 ;
 ; Manejo de interrupcion por timer1
 ;
 
-tmr1_handle:
+dac_tmr1_handle:
 
 	BANKSEL PIE1
 	BTFSS	PIE1, TMR1IE	; interrupciones por timer1 habilitadas?
@@ -248,12 +237,12 @@ tmr1_handle:
 	BANKSEL PIR1
 	BCF	PIR1, TMR1IF	; bajo la bandera
 
-	CALL	reset_timer1
+	CALL	dac_tmr1_reset
 
-	INCF	time_instant_counter, F
-	MOVF	time_instant_counter, W	; incremento el contador de intervalos de tiempo en 1
+	INCF	INST, F
+	MOVF	INST, W	; incremento el contador de intervalos de tiempo en 1
 	
-	CALL	get_func_value		; llamo a la tabla correspondiente para obtener el valor de la funcion
+	CALL	dac_get_func_value		; llamo a la tabla correspondiente para obtener el valor de la funcion
 
 	BANKSEL PORTB
 	MOVWF	PORTB		; coloco el valor a la salida de portb
@@ -265,7 +254,7 @@ tmr1_handle:
 ; el valor indicado segun la cuenta actual que se pase como argumento
 ;
 
-get_func_value:
+dac_get_func_value:
 	MOVWF	temp_work_f
 	MOVLW	b'00001100'	; enmascaro bits que me dan el tipo de onda
 	ANDWF	SCON, W		; obtengo la onda seleccionada
@@ -277,38 +266,38 @@ get_func_value:
 	ADDWF	PCL, F 		; busco en la tabla indicada el valor
 
 	MOVF	temp_work_f, W	; 0
-	CALL	get_squr_value	
+	CALL	dac_get_squr_value	
 	RETURN
 	NOP
 	
 	MOVF	temp_work_f, W	; 4
-	CALL	get_trng_value	
+	CALL	dac_get_trng_value	
 	RETURN
 	NOP
 	
 	MOVF	temp_work_f, W	; 8
-	CALL	get_swth_value
+	CALL	dac_get_swth_value
 	RETURN
 	NOP
 	
 	MOVF	temp_work_f, W	; 12
-	CALL	get_sine_value
+	CALL	dac_get_sine_value
 	RETURN
 	
 ;
 ; Subrutina que restablece el valor de precarga del timer y lo reinicia
 ;
 
-reset_timer1:
+dac_tmr1_reset:
 
 	BANKSEL T1CON
 	BCF	T1CON, TMR1ON	; apago el timer momentaneamente
 
 	BANKSEL 0
 	
-	MOVF	tmr1_preload_l, W	
+	MOVF	dac_tmr1_preload_l, W	
 	MOVWF	TMR1L
-	MOVF	tmr1_preload_h, W
+	MOVF	dac_tmr1_preload_h, W
 	MOVWF	TMR1H		; reinicio el timer con su respectiva precarga
 
 	BANKSEL T1CON
@@ -319,19 +308,10 @@ reset_timer1:
 ; Punto de entrada del programa, configuración
 ;
 
-setup:	
+dac_setup:	
 
 ; Configuración de la señal ------------------------------------------
 
-	CLRF	SCON
-
-	BSF	SCON, STYP1 
-	BSF	SCON, STYP0
-	
-	BSF	SCON, SFRC2 
-	BSF	SCON, SFRC1 
-	BSF	SCON, SFRC0 
-	
 	MOVLW	b'01110000'	; enmascaro bits que me dan la frecuencia
 	ANDWF	SCON, W		; obtengo frecuencia seleccionada
 	MOVWF	temp_work_f	; muevo a un registro temporario
@@ -345,11 +325,11 @@ setup:
 	RRF	temp_work_f, F 	; al nibble inferior del byte
 	
 	MOVF	temp_work_f, W	
-	CALL	get_tmr1_prel_l	; consigo el valor de precarga para el byte bajo de tmr1
-	MOVWF	tmr1_preload_l	; cargo el valor
+	CALL	dac_get_tmr1_prel_l	; consigo el valor de precarga para el byte bajo de tmr1
+	MOVWF	dac_tmr1_preload_l	; cargo el valor
 	MOVF	temp_work_f, W	
-	CALL	get_tmr1_prel_h	; consigo el valor de precarga para el byte alto de tmr1
-	MOVWF	tmr1_preload_h	; cargo el valor
+	CALL	dac_get_tmr1_prel_h	; consigo el valor de precarga para el byte alto de tmr1
+	MOVWF	dac_tmr1_preload_h	; cargo el valor
 	
 ; Configuración de puertos ------------------------------------------
 
@@ -379,23 +359,10 @@ setup:
 	BANKSEL PIE1
 	BSF	PIE1, TMR1IE	; interrupciones por timer1 habilitadas
 
-	CALL	reset_timer1
+	CALL	dac_tmr1_reset
 	
 ; Inicializacion de variables --------------------------------------
 
-	CLRF	time_instant_counter
+	CLRF	INST
 
-; Configuración de interrupciones ----------------------------------
-
-	BSF	INTCON, PEIE
-	BSF	INTCON, GIE
-
-	GOTO	main
-
-;
-; Punto de entrada del programa, rutina principal
-;
-
-main: 	NOP
-	GOTO	main
-	END
+	RETURN

@@ -39,37 +39,23 @@
 ; 
 ; ==================================================================================================================
 
-LIST p=16f887
-#include <p16f887.inc>
 
 display_head_ptr EQU 0x30
 display_head_base EQU 0x31
+
 DIG0 EQU 0X35
 DIG1 EQU 0X36
 DIG2 EQU 0X37
 DIG3 EQU 0X38
 
-tmr0_preload EQU .101
-temp_w	EQU 0x70
-
-temp_status EQU 0x71
-
-	__CONFIG _CONFIG1, _XT_OSC & _WDT_OFF & _PWRTE_OFF & _CP_OFF & _CPD_OFF & _BOR_ON & _LVP_OFF	
-	__CONFIG _CONFIG2, _BOR4V_BOR21V & _WRT_OFF
-	
-	ORG	0X00
-	GOTO	setup
-
-	ORG	0X04
-	GOTO	int
-
-	ORG	0X05
+display_tmr0_preload EQU .101
 
 ;
 ; Tabla de traduccion de numero a digitos encendidos en el display de 7 segmentos	
 ;
 
-table:	ANDLW	b'00001111'	; limito w a 16 bits, para evitar errores de aumento en el PCL
+display_table:
+	ANDLW	b'00001111'	; limito w a 16 bits, para evitar errores de aumento en el PCL
 	ADDWF	PCL, F		; sumar el numero en w al program counter, esto selecciona el numero que mostraremos
 				; en el display de 7 segmentos
 	RETLW	b'01110111'	; 0
@@ -93,30 +79,22 @@ table:	ANDLW	b'00001111'	; limito w a 16 bits, para evitar errores de aumento en
 ; Subrutina de interrupcion
 ;
 
-int:	MOVWF	temp_w			
-	SWAPF	temp_w, F 		
-	SWAPF	STATUS, W 		
-	MOVWF	temp_status		; guardo contexto
-	
+display_int:
 	BTFSC	INTCON, T0IF		; El timer0 lanzo la interrupción?
-	CALL	tmr0_handle		; Sí
+	CALL	display_tmr0_handle		; Sí
 
-	SWAPF	temp_status, W
-	MOVWF	STATUS
-	SWAPF	temp_w, W 		; recupero contexto
-	
-	RETFIE
+	RETURN
 
 ;	
 ; Manejador de interrupcion por TIMER0
 ;
 
-tmr0_handle:
+display_tmr0_handle:
 
 	BTFSS	INTCON, T0IE		; el timer estaba habilitado?
 	RETURN				; no, no reacciono
 
-	CALL	reset_timer0 		; reinicio el timer
+	CALL	display_tmr0_reset	; reinicio el timer
 	
 	BANKSEL 0 
 	BCF	STATUS, IRP		; direccionamiento indirecto en los bancos 0 y 1
@@ -129,11 +107,11 @@ tmr0_handle:
 
 	MOVWF	FSR
 	MOVF	INDF, W			; saco el valor del digito a mostrar por direccionamiento indirecto
-	CALL 	table 			; traduzco el valor de un número a la combinacion de leds que lo muestra en el display
+	CALL 	display_table 			; traduzco el valor de un número a la combinacion de leds que lo muestra en el display
 	MOVWF	PORTD			; seteo el dígito actual
 	
 	MOVF	display_head_ptr, W 	
-	CALL	number_to_onehot	; consigo el valor para multiplexar al display indicado
+	CALL	display_number_to_onehot	; consigo el valor para multiplexar al display indicado
 	MOVWF	PORTC			; cambio al siguiente display 
 
 	
@@ -145,7 +123,7 @@ tmr0_handle:
 ; Traduce el número de iteracion a la multiplexación del display correspondiente
 ;
 
-number_to_onehot:
+display_number_to_onehot:
 	ANDLW	b'00000011'	; limito a 4 posibilidades
 	ADDWF	PCL, F
 	
@@ -158,14 +136,14 @@ number_to_onehot:
 ; Reestablece la precarga del timer0
 ;
 
-reset_timer0:
+display_tmr0_reset:
 	BANKSEL 0
 	BCF	INTCON, T0IF		; bajo la bandera
-	MOVLW	tmr0_preload
+	MOVLW	display_tmr0_preload
 	MOVWF	TMR0			; coloco la precarga
 	RETURN
 	
-setup:
+display_setup:
 
 ; Configuracion de puertos --------------------------------------
 
@@ -201,22 +179,9 @@ setup:
 
 ; Configuracion de interrupciones -------------------------------
 
-	CALL	reset_timer0
-	BSF	INTCON, GIE	; habilito interrupciones
+	CALL	display_tmr0_reset
 
-	GOTO	main
-		
-main:	MOVLW	.1
-	MOVWF	DIG0
-	MOVLW	.2
-	MOVWF	DIG1
-	MOVLW	.3
-	MOVWF	DIG2
-	MOVLW	.4
-	MOVWF	DIG3
-	
-	GOTO	main
-	END
+	RETURN
 
 
 

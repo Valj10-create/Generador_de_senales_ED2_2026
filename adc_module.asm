@@ -15,50 +15,25 @@
 ; cuenta a la hora de la conversión. Se usa un cristal externo oscilador de 8MHz.
 ; ============================================================================================================
 
-LIST p=16f887
-#include <p16f887.inc>
-
-adc_head_ptr EQU 0x30
-adc_head_base EQU 0x31
-temp_w EQU 0x71
-temp_status EQU 0x72
-
-        __CONFIG _CONFIG1, _HS_OSC & _WDT_OFF & _PWRTE_OFF & _CP_OFF & _CPD_OFF & _BOR_ON & _LVP_OFF
-        __CONFIG _CONFIG2, _BOR4V_BOR21V & _WRT_OFF
-
-        ORG     0X00
-        GOTO    setup
-
-        ORG     0X04
-        GOTO    int
-
-        ORG     0X05
+adc_head_ptr EQU 0x32
+adc_head_base EQU 0x33
 
 ;
 ; Subrutina de interrupción
 ;
 
-int:
-	MOVWF	temp_w
-	SWAPF	temp_w, F
-	SWAPF	STATUS, W
-	MOVWF	temp_status	; guardar contexto
-
+adc_int:
 	BANKSEL PIR1
 	BTFSC	PIR1, ADIF	; interrupcion causada por adc?
-	GOTO 	handle_adc	
+	GOTO 	adc_handle	
 
-	SWAPF	temp_status, W
-	MOVWF	STATUS
-	SWAPF	temp_w, W	; restablecer contexto
-
-	RETFIE
+	RETURN
 
 ;
 ; Manejo de interrupcion por ADC
 ;
 
-handle_adc:
+adc_handle:
 	BANKSEL PIE1
 	BTFSS	PIE1, ADIE	; interrupcion por ADC habilitada ?
 	RETURN
@@ -78,14 +53,13 @@ handle_adc:
 	
 	; escribir el resultado de la conversion a un buffer rotativo de x cantidad de bytes
 
-	
 	RETURN
 
 ;
 ; Punto de entrada del programa, configuración
 ;
 
-setup:
+adc_setup:
 
 ; Configuracion de puertos ----------------------------------
 
@@ -131,20 +105,4 @@ setup:
 
 	CLRF	adc_head_ptr 	; el contador para el apuntador arranca en 0
 	
-; Configuracion de interrupciones -----------------------------
-
-	BSF	INTCON, PEIE	
-	BSF	INTCON, GIE
-	
-	BANKSEL ADCON0
-	BSF	ADCON0, GO 	; inicio la conversion
-	
-	GOTO	main
-
-;
-; Punto de entrada del programa, rutina principal
-;
-
-main:	
- 	GOTO	main
-	END
+	RETURN
