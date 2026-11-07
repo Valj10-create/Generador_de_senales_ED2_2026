@@ -38,23 +38,6 @@
 ; 
 ; ============================================================================================================
 
-
-dac_tmr1_preload_l EQU 0X20
-dac_tmr1_preload_h EQU 0X21
-
-temp_work_f EQU	0x74
-
-INST EQU 0x73
-
-SCON 	EQU 	0X75
-STYP0 	EQU 	2
-STYP1 	EQU 	3
-SFRC0 	EQU 	4
-SFRC1 	EQU 	5
-SFRC2 	EQU 	6
-SENA	EQU	7
-
-
 ;
 ; Devuelve el valor de precarga para el byte menos significativo del timer1
 ; según la frecuencia seleccionada

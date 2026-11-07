@@ -32,12 +32,8 @@
 ;
 ; ==================================================================================================================
 
-keyboard_row EQU 0x22
-keyboard_column EQU 0x23
-keyboard_rows EQU 0x24
-keyboard_columns EQU 0x25
-
-KBREAD EQU 0x2F
+keyboard_timer1_prel_l EQU .0
+keyboard_timer1_prel_h EQU .0
 
 ;
 ; Rutina de interrupcion
@@ -45,11 +41,11 @@ KBREAD EQU 0x2F
 
 keyboard_int:
 	
-	BTFSC	INTCON, RBIF		; El puerto B lanzo interrupcion por cambio?
-	CALL 	keyboard_btn_handle		; Si
+	BTFSC	INTCON, RBIF		; interrupcion por rb?
+	CALL 	keyboard_btn_handle
 
 	BANKSEL PIR1
-	BTFSC	PIR1, TMR1IF		; El timer 1 lanzo interrupción?
+	BTFSC	PIR1, TMR1IF		; interrupción por timer1?
 	CALL	keyboard_tmr1_handle
 	
 	RETURN
@@ -60,18 +56,21 @@ keyboard_int:
 
 keyboard_tmr1_deb:
 
-	BANKSEL TMR1H
-	CLRF	TMR1H
-	CLRF	TMR1L		; arranca el timer desde cero
+	BANKSEL T1CON
+	BCF	T1CON, TMR1ON	; apago el timer
+
+	MOVF	keyboard_timer1_prel_h, W
+	MOVWF	TMR1H
+	MOVF	keyboard_timer1_prel_l, W
+	MOVWF	TMR1L		; precarga el timer
+
+	BCF	PIR1, TMR1IF	; me aseguro que la bandera este baja
+
+	BANKSEL PIE1
+	BSF	PIE1, TMR1IE	; habilito interrupciones por timer
 
 	BANKSEL T1CON
 	BSF	T1CON, TMR1ON	; enciendo el timer
-
-;	BANKSEL PIR1
-;	BCF	PIR1, TMR1IF	; me aseguro que la bandera este baja
-	
-;	BANKSEL PIE1
-;	BSF	PIE1, TMR1IE	; habilito interrupciones por timer
 
 	RETURN
 
@@ -80,11 +79,13 @@ keyboard_tmr1_deb:
 ;
 
 keyboard_btn_handle:
-	BTFSS	INTCON, RBIE	; Interrupción por botón habilitada?
-	RETURN			; No, ignorar
 
+	BTFSS	INTCON, RBIE	; interrupción por botón habilitada?
+	RETURN			; no, ignorar
+
+	BANKSEL PORTB
 	MOVF	PORTB, W 	; leo portb para habilitar bajar la bandera 
-	BCF	INTCON, RBIF 	; Handled, bajo la bandera
+	BCF	INTCON, RBIF 	; handled, bajo la bandera
 
 	BCF	INTCON, RBIE	; dejo de escuchar interrupcion por boton
 
@@ -99,22 +100,20 @@ keyboard_btn_handle:
 keyboard_tmr1_handle:
 
 	BANKSEL PIE1
-	BTFSS	PIE1, TMR1IE		; la interrupcion por timer estaba habilitada?
-	RETURN				; no, ignoro
+	BTFSS	PIE1, TMR1IE	; la interrupcion por timer estaba habilitada?
+	RETURN			; no, ignoro
 
 	BANKSEL PIR1
-	BCF	PIR1, TMR1IF		; bajo la bandera
+	BCF	PIR1, TMR1IF	; bajo la bandera
 	
-	BANKSEL T1CON
-	BCF	T1CON, TMR1ON		; apago el timer
+	BCF	T1CON, TMR1ON	; apago el timer
 	
-;	BANKSEL PIE1
-;	BCF	PIE1, TMR1IE
+	BANKSEL PIE1
+	BCF	PIE1, TMR1IE	; deshabilito la interrupcion
 
-	CALL	keyboard_poll	
-	BANKSEL 0
-	MOVWF	KBREAD
-	
+	BSF	EVENT, KBPOL	; poll needed
+
+	BANKSEL PORTB
 	CLRF	PORTB		; dejo todas las filas en 0 para que la próxima pulsación vuelva a generar la interrupción
 	MOVF	PORTB, W	; leo PORTB para terminar el mismatch causado por el barrido
 	
@@ -167,7 +166,7 @@ keyboard_next_column:
 	DECFSZ	keyboard_rows, F
 	GOTO	keyboard_next_row
 
-	RETLW	.255		; si no encontre nada devuelvo un valor absourdo
+	RETLW	0x80		; si no encontre nada devuelvo un valor absourdo
 
 keyboard_found:
 	MOVF	keyboard_row, W  		; row es como: 0000 xxxx
@@ -253,7 +252,7 @@ keyboard_setup:
 	CLRF	TMR1L
 	
 	BANKSEL PIE1
-	BSF	PIE1, TMR1IE	; Habilito interrupciones por timer 1
+	BCF	PIE1, TMR1IE	; Habilito interrupciones por timer 1
 
 	BANKSEL PIR1
 	BCF	PIR1, TMR1IF	; bajo el flag
@@ -267,4 +266,32 @@ keyboard_setup:
 	CLRF	keyboard_columns	; teclado matricial: indice de columna
 
 	RETURN
-	
+
+;
+; Corre en el loop principal del programa, hace polling en el teclado
+; cuando se detecta un cambio en el valor
+;
+
+keyboard_task:
+	BANKSEL 0
+	BTFSS	EVENT, KBPOL		; poll needed?
+	RETURN				; no	
+
+	CALL	keyboard_poll	
+
+	BANKSEL 0
+	MOVWF	KBREAD
+	BCF	EVENT, KBPOL	
+
+	RETURN
+
+
+
+
+
+
+
+
+
+
+

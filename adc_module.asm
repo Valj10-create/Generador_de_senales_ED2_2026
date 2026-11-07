@@ -15,9 +15,6 @@
 ; cuenta a la hora de la conversión. Se usa un cristal externo oscilador de 8MHz.
 ; ============================================================================================================
 
-adc_head_ptr EQU 0x32
-adc_head_base EQU 0x33
-
 ;
 ; Subrutina de interrupción
 ;

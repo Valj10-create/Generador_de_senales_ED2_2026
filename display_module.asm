@@ -39,15 +39,6 @@
 ; 
 ; ==================================================================================================================
 
-
-display_head_ptr EQU 0x30
-display_head_base EQU 0x31
-
-DIG0 EQU 0X35
-DIG1 EQU 0X36
-DIG2 EQU 0X37
-DIG3 EQU 0X38
-
 display_tmr0_preload EQU .101
 
 ;
@@ -80,8 +71,9 @@ display_table:
 ;
 
 display_int:
-	BTFSC	INTCON, T0IF		; El timer0 lanzo la interrupción?
-	CALL	display_tmr0_handle		; Sí
+
+	BTFSC	INTCON, T0IF		; interrupcion por timer0?
+	CALL	display_tmr0_handle	; si
 
 	RETURN
 
@@ -91,34 +83,44 @@ display_int:
 
 display_tmr0_handle:
 
-	BTFSS	INTCON, T0IE		; el timer estaba habilitado?
-	RETURN				; no, no reacciono
-
-	CALL	display_tmr0_reset	; reinicio el timer
-	
 	BANKSEL 0 
 	BCF	STATUS, IRP		; direccionamiento indirecto en los bancos 0 y 1
 
-	CLRF	PORTC			; limpio el puerto de multiplexado para evitar ghosting del dígito
+	BTFSS	INTCON, T0IE		; interrupcion habilitada?
+	RETURN				; no, ignoro
+
+	CALL	display_tmr0_reset	; reinicio el timer
 	
+
+	CLRF	PORTC			; limpio el puerto de multiplexado para evitar ghosting del dígito	
+
 	MOVF	display_head_ptr, W 	
 	ANDLW	b'00000011' 		; limito el conteo a 4
 	ADDWF	display_head_base, W 	; computo la direcion del digito actual a mostrar
 
 	MOVWF	FSR
 	MOVF	INDF, W			; saco el valor del digito a mostrar por direccionamiento indirecto
-	CALL 	display_table 			; traduzco el valor de un número a la combinacion de leds que lo muestra en el display
+	CALL 	display_table 		; traduzco el valor de un número a la combinacion de leds que lo muestra en el display
 	MOVWF	PORTD			; seteo el dígito actual
 	
 	MOVF	display_head_ptr, W 	
-	CALL	display_number_to_onehot	; consigo el valor para multiplexar al display indicado
+	CALL	display_number_to_onehot; consigo el valor para multiplexar al display indicado
 	MOVWF	PORTC			; cambio al siguiente display 
 
-	
 	INCF	display_head_ptr, F 	; incremento el puntero a la dirección de memoria del siguiente dígito
 	
 	RETURN	
 
+;
+; Reestablece la precarga del timer0
+;
+display_tmr0_reset:
+	BANKSEL 0
+	BCF	INTCON, T0IF		; bajo la bandera
+	MOVLW	display_tmr0_preload
+	MOVWF	TMR0			; coloco la precarga
+	RETURN
+	
 ;
 ; Traduce el número de iteracion a la multiplexación del display correspondiente
 ;
@@ -132,17 +134,7 @@ display_number_to_onehot:
 	RETLW	b'00000100'
 	RETLW	b'00001000'
 
-;
-; Reestablece la precarga del timer0
-;
 
-display_tmr0_reset:
-	BANKSEL 0
-	BCF	INTCON, T0IF		; bajo la bandera
-	MOVLW	display_tmr0_preload
-	MOVWF	TMR0			; coloco la precarga
-	RETURN
-	
 display_setup:
 
 ; Configuracion de puertos --------------------------------------
@@ -159,7 +151,6 @@ display_setup:
 	
 ; Configuracion de timer0 ---------------------------------------
 
-	BANKSEL OPTION_REG
 	BCF	OPTION_REG, T0CS	; Timer0 en modo timer
 	BCF	OPTION_REG, PSA		; Prescaler se usará para timer y no para watchdog
 	BSF	OPTION_REG, PS2 	; 
