@@ -22,22 +22,19 @@
 	__CONFIG _CONFIG1, _XT_OSC & _WDT_OFF & _PWRTE_OFF & _CP_OFF & _CPD_OFF & _BOR_ON & _LVP_OFF	
 	__CONFIG _CONFIG2, _BOR4V_BOR21V & _WRT_OFF
 	
-	ORG	0X00
+	ORG	0X0000
 	GOTO	setup
 
-	ORG	0X04
-	GOTO	int
-	
-	ORG	0X05
+	ORG	0X0004
 int:	
 	MOVWF	temp_w
 	SWAPF	temp_w, F 		
 	SWAPF	STATUS, W 		
 	MOVWF	temp_status		
-	;MOVF	FSR, W
-	;MOVWF	temp_fsr
-	;MOVF	PCLATH, W
-	;MOVWF	temp_pclath		; guardo contexto
+	MOVF	FSR, W
+	MOVWF	temp_fsr
+	MOVF	PCLATH, W
+	MOVWF	temp_pclath		; guardo contexto
 
 	CALL	display_int
 	CALL	keyboard_int
@@ -50,56 +47,24 @@ int:
 ;	CALL	com_int
 
 int_end:
-	;MOVF	temp_fsr, W
-	;MOVWF	FSR
-	;MOVF	temp_pclath, W
-	;MOVWF	PCLATH
+	MOVF	temp_fsr, W
+	MOVWF	FSR
+	MOVF	temp_pclath, W
+	MOVWF	PCLATH
 	SWAPF	temp_status, W
 	MOVWF	STATUS
 	SWAPF	temp_w, W 		; recupero contexto
 	
 	RETFIE				; regreso de la interrupcion a la direccion del codigo que se estaba ejecutando
 
-setup:
-	CALL 	display_setup		
-	CALL 	keyboard_setup		
-	;CALL 	dac_setup		
-	;CALL 	adc_setup		
-	;CALL 	com_setup		
 
-; Configuracion de interrupciones -----------------------------
-
-        BSF     INTCON, PEIE
-        BSF     INTCON, GIE
-
-;        BANKSEL ADCON0
-;        BSF     ADCON0, GO      ; inicio la conversion
-
-
-loop:	
+	ORG	0X0100
 	
-	CALL	keyboard_task
-	
-	MOVF	KBREAD, W
-	XORWF	KBREADL, W 	; comparo el registro de teclado con su latch
-
-	BTFSS	STATUS, Z	; si los numeros eran iguales, no hubo cambios
-	GOTO 	loop		; ignorar
-
-	MOVF	KBREAD, W
-	CALL	key_func	; selecciono la funcion según el boton presionado
-
-	MOVF	KBREAD, W
-	MOVWF	KBREADL 	; cambio el latch al valor actual
-
-	CALL	update_display
-		
-;	BTFSC	SCON, SENA		; produccion de señal habilitada?
-	
-        ;CALL    com_task
-        GOTO    loop
-
 key_func:
+	MOVWF	temp_work_f
+	MOVLW	0X01
+	MOVWF	PCLATH
+	MOVF	temp_work_f, W
 	ANDLW	b'00001111'	; limito a 16 valores
 	MOVWF	temp_work_f
 
@@ -202,7 +167,13 @@ key_func_end:
 	MOVWF 	SCON		;
 	RETURN
 
+	ORG	0X0180
+	
 update_display:
+	MOVWF	temp_work_f
+	MOVLW	0X01
+	MOVWF	PCLATH
+	MOVF	temp_work_f, W
 
 	MOVF	SCON, W
 	ANDLW	b'01110000'	
@@ -288,10 +259,62 @@ update_display_end:
 	MOVWF	DIG3
 	RETURN
 	
+setup:
+	CALL 	display_setup		
+	CALL 	keyboard_setup		
+	;CALL 	dac_setup		
+	;CALL 	adc_setup		
+	;CALL 	com_setup		
+
+; Configuracion de interrupciones -----------------------------
+
+        BSF     INTCON, PEIE
+        BSF     INTCON, GIE
+
+;        BANKSEL ADCON0
+;        BSF     ADCON0, GO      ; inicio la conversion
+	
+loop:	
+	
+;	CALL	keyboard_task
+		
+	MOVF	KBREAD, W
+	XORWF	KBREADL, W 	; comparo el registro de teclado con su latch
+
+	BTFSC	STATUS, Z	; si los numeros eran iguales, no hubo cambios
+	GOTO 	loop		; ignorar
+
+	MOVF	KBREAD, W
+	CALL	key_func	; selecciono la funcion según el boton presionado
+
+	MOVF	KBREAD, W
+	MOVWF	KBREADL 	; cambio el latch al valor actual
+
+	CALL	update_display
+		
+;	BTFSC	SCON, SENA		; produccion de señal habilitada?
+	
+        ;CALL    com_task
+        GOTO    loop
+
+        #include "display_module.asm"
+	#include "keyboard_module.asm"
+	
  ;       #include "dac_module.asm"
 ;        #include "adc_module.asm"
-        #include "keyboard_module.asm"
-        #include "display_module.asm"
 ;        #include "com_module.asm"
 
         END
+
+
+
+
+
+
+
+
+
+
+
+
+

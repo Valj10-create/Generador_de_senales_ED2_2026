@@ -1,4 +1,5 @@
 
+
 ; TP Final - Electronica Digital 2 - Display Module
 
 ; Autores:
@@ -39,13 +40,16 @@
 ; 
 ; ==================================================================================================================
 
-display_tmr0_preload EQU .101
-
 ;
 ; Tabla de traduccion de numero a digitos encendidos en el display de 7 segmentos	
 ;
+	ORG	0X0200
 
 display_table:
+	MOVWF	temp_work_f
+	MOVLW	0X02
+	MOVWF	PCLATH
+	MOVF	temp_work_f, W
 	ANDLW	b'00001111'	; limito w a 16 bits, para evitar errores de aumento en el PCL
 	ADDWF	PCL, F		; sumar el numero en w al program counter, esto selecciona el numero que mostraremos
 				; en el display de 7 segmentos
@@ -67,6 +71,28 @@ display_table:
 	RETLW	b'00011011'     ; F
 
 ;
+; Traduce el número de iteracion a la multiplexación del display correspondiente
+;
+	ORG	0X0220
+	
+display_number_to_onehot:
+	MOVWF	temp_work_f
+	MOVLW	0X02
+	MOVWF	PCLATH
+	MOVF	temp_work_f, W
+	ANDLW	b'00000011'	; limito a 4 posibilidades
+;	CLRF	PCLATH
+	ADDWF	PCL, F
+	
+	RETLW	b'00000001'
+	RETLW	b'00000010'
+	RETLW	b'00000100'
+	RETLW	b'00001000'
+
+
+display_tmr0_preload EQU .101
+
+;
 ; Subrutina de interrupcion
 ;
 
@@ -83,15 +109,15 @@ display_int:
 
 display_tmr0_handle:
 
-	BANKSEL 0 
-	BCF	STATUS, IRP		; direccionamiento indirecto en los bancos 0 y 1
-
 	BTFSS	INTCON, T0IE		; interrupcion habilitada?
 	RETURN				; no, ignoro
 
-	CALL	display_tmr0_reset	; reinicio el timer
+	BCF	INTCON, T0IF		; bajo la bandera
 	
+	CALL	display_tmr0_reset	; reinicio el timer	
 
+	BANKSEL 0 
+	BCF	STATUS, IRP		; direccionamiento indirecto en los bancos 0 y 1
 	CLRF	PORTC			; limpio el puerto de multiplexado para evitar ghosting del dígito	
 
 	MOVF	display_head_ptr, W 	
@@ -101,10 +127,13 @@ display_tmr0_handle:
 	MOVWF	FSR
 	MOVF	INDF, W			; saco el valor del digito a mostrar por direccionamiento indirecto
 	CALL 	display_table 		; traduzco el valor de un número a la combinacion de leds que lo muestra en el display
+
+	BANKSEL PORTD
 	MOVWF	PORTD			; seteo el dígito actual
 	
 	MOVF	display_head_ptr, W 	
 	CALL	display_number_to_onehot; consigo el valor para multiplexar al display indicado
+	BANKSEL PORTC
 	MOVWF	PORTC			; cambio al siguiente display 
 
 	INCF	display_head_ptr, F 	; incremento el puntero a la dirección de memoria del siguiente dígito
@@ -115,24 +144,13 @@ display_tmr0_handle:
 ; Reestablece la precarga del timer0
 ;
 display_tmr0_reset:
+
 	BANKSEL 0
-	BCF	INTCON, T0IF		; bajo la bandera
 	MOVLW	display_tmr0_preload
 	MOVWF	TMR0			; coloco la precarga
+
 	RETURN
 	
-;
-; Traduce el número de iteracion a la multiplexación del display correspondiente
-;
-
-display_number_to_onehot:
-	ANDLW	b'00000011'	; limito a 4 posibilidades
-	ADDWF	PCL, F
-	
-	RETLW	b'00000001'
-	RETLW	b'00000010'
-	RETLW	b'00000100'
-	RETLW	b'00001000'
 
 
 display_setup:
@@ -173,6 +191,7 @@ display_setup:
 	CALL	display_tmr0_reset
 
 	RETURN
+
 
 
 
