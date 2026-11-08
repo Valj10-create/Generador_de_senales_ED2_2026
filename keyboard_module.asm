@@ -297,6 +297,42 @@ keyboard_setup:
 
 	RETURN
 
+
+keyboard_deset:
+
+; Configuracion de puertos -----------------------------------------------
+
+	BANKSEL PORTB
+	CLRF	PORTB		; limpio salidas
+	
+; Configuracion de pull-ups ----------------------------------------------
+
+	BANKSEL OPTION_REG
+	BSF	OPTION_REG, 7 	; deshabilita WBPU weak b pull-ups 
+
+	BANKSEL WPUB
+	CLRF	WPUB
+	
+; Configuracion de interrupcion por cambio en rb -------------------------
+
+	BCF	INTCON, RBIE
+	
+	BANKSEL IOCB
+	CLRF	IOCB
+	
+; Configuracion de timer1 ------------------------------------------------
+
+	BANKSEL T1CON
+	BCF	T1CON, TMR1ON	; apago el timer para que no arranque a contar
+
+	BANKSEL PIE1
+	BCF	PIE1, TMR1IE	; Deshabilito interrupciones por timer 1
+
+	BANKSEL PIR1
+	BCF	PIR1, TMR1IF	; bajo el flag
+
+	RETURN
+
 ;
 ; Corre en el loop principal del programa, hace polling en el teclado
 ; cuando se detecta un cambio en el valor

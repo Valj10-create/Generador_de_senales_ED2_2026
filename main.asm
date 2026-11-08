@@ -37,12 +37,14 @@ int:
 	MOVWF	temp_pclath		; guardo contexto
 
 	CALL	display_int
-	CALL	keyboard_int
 
-;	BTFSS	SCON, SENA		; produccion de señal habilitada?
-;	GOTO	int_end 		; salteo todo lo que tiene que ver con la señal
-;	
-;	CALL	dac_int
+	BTFSS	SCON, SENA		; produccion de señal habilitada?
+	CALL	keyboard_int		; si, salteo lecturas del teclado
+
+	BTFSS	SCON, SENA		; produccion de señal habilitada?
+	GOTO	int_end 		; salteo todo lo que tiene que ver con la señal
+	
+	CALL	dac_int
 ;	CALL	adc_int
 ;	CALL	com_int
 
@@ -262,17 +264,13 @@ update_display_end:
 setup:
 	CALL 	display_setup		
 	CALL 	keyboard_setup		
-	;CALL 	dac_setup		
-	;CALL 	adc_setup		
-	;CALL 	com_setup		
+
+	BCF	SCON, SENA
 
 ; Configuracion de interrupciones -----------------------------
 
         BSF     INTCON, PEIE
         BSF     INTCON, GIE
-
-;        BANKSEL ADCON0
-;        BSF     ADCON0, GO      ; inicio la conversion
 	
 loop:	
 	
@@ -292,15 +290,33 @@ loop:
 
 	CALL	update_display
 		
-;	BTFSC	SCON, SENA		; produccion de señal habilitada?
-	
-        ;CALL    com_task
+	BTFSC	SCON, SENA		; produccion de señal habilitada?
+	GOTO	sgen_setup	
+
         GOTO    loop
 
-        #include "display_module.asm"
+sgen_setup:
+
+        BCF     INTCON, GIE
+
+	CALL	keyboard_deset
+	CALL 	dac_setup		
+;	CALL 	adc_setup		
+;	CALL 	com_setup		
+
+; Configuracion de interrupciones -----------------------------
+
+        BSF     INTCON, GIE
+
+;        BANKSEL ADCON0
+;        BSF     ADCON0, GO      ; inicio la conversion
+
+sgen_loop:
+	GOTO 	sgen_loop
+
+	#include "display_module.asm"
 	#include "keyboard_module.asm"
-	
- ;       #include "dac_module.asm"
+	#include "dac_module.asm"
 ;        #include "adc_module.asm"
 ;        #include "com_module.asm"
 

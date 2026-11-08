@@ -38,14 +38,22 @@
 ; 
 ; ============================================================================================================
 
+	ORG	0X0400
 ;
 ; Devuelve el valor de precarga para el byte menos significativo del timer1
 ; según la frecuencia seleccionada
 ;
 
 dac_get_tmr1_prel_l:
+
+	MOVWF	temp_work_f	; guardo el argumento
+	MOVLW	0X04
+	MOVWF	PCLATH		; me aseguro que pclath esta en la direcion correcta
+
+	MOVF	temp_work_f, W	; devuelvo el argumento
 	ANDLW	b'00000111'	; enmascaro para limitar a 8 valores
 	ADDWF	PCL, F 		; incremento program counter
+
 	RETLW	0X11
 	RETLW	0X4F
 	RETLW	0XB9
@@ -54,15 +62,23 @@ dac_get_tmr1_prel_l:
 	RETLW	0X52
 	RETLW	0XC9
 	RETLW	0XE4
-	
+
+	ORG	0X0410
 ;
 ; Devuelve el valor de precarga para el byte mas significativo del timer1
 ; según la frecuencia seleccionada
 ;
 
 dac_get_tmr1_prel_h:
+
+	MOVWF	temp_work_f	; guardo el argumento
+	MOVLW	0X04
+	MOVWF	PCLATH		; me aseguro que pclath esta en la direcion correcta
+
+	MOVF	temp_work_f, W	; devuelvo el argumento
 	ANDLW	b'00000111'	; enmascaro para limitar a 8 valores
 	ADDWF	PCL, F 		; incremento program counter
+	
 	RETLW	0X86
 	RETLW	0XCF
 	RETLW	0XE7
@@ -72,23 +88,7 @@ dac_get_tmr1_prel_h:
 	RETLW	0XFF
 	RETLW	0XFF
 
-;
-; Devuelve un valor entre 0-255 que corresponde a una funcion cuadrada, dado
-; un x [0-32] pasado como argumento (a traves de w).
-;
-; f(x) = | 0   si  x < 16
-;	 | 255 si  x >= 16
-;
-
-dac_get_squr_value:
-
-	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
-	ANDLW	b'00010000'	; enmascaro el 5to bit
-	BTFSC	STATUS, Z	; si W fue cero, entonces el numero era menor a 16
-	RETLW	.0
-	RETLW	.255		; else el numero era mayor
-
-
+	ORG	0X0420
 ;
 ; Devuelve un valor entre 0-255 que corresponde a una funcion triangular, dado
 ; un x [0-32] pasado como argumento (a traves de w).
@@ -98,8 +98,15 @@ dac_get_squr_value:
 ;
 	
 dac_get_trng_value:
+
+	MOVWF	temp_work_f	; guardo el argumento
+	MOVLW	0X04
+	MOVWF	PCLATH		; me aseguro que pclath esta en la direcion correcta
+
+	MOVF	temp_work_f, W	; devuelvo el argumento
 	ANDLW	b'00011111'	; mask the index to 0..31
 	ADDWF	PCL, F
+
 	RETLW	.0		; x=0   0x00
 	RETLW	.16		; x=1   0x10
 	RETLW	.32		; x=2   0x20
@@ -132,26 +139,9 @@ dac_get_trng_value:
 	RETLW	.48		; x=29  0x30
 	RETLW	.32		; x=30  0x20
 	RETLW	.16		; x=31  0x10
-	
-;
-; Devuelve un valor entre 0-255 que corresponde a una funcion diente de sierra, dado
-; un x [0-32] pasado como argumento (a traves de w).
-;
-; f(x) = 8x
-;
 
-dac_get_swth_value:
-	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
+	ORG	0X0450
 
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-	BCF	STATUS, C
-	RLF	temp_work_f, F
-	BCF	STATUS, C
-	RLF	temp_work_f, W
-	
-	RETURN			; es directamente el valor del contador
-	
 ;
 ; Devuelve un valor entre 0-255 que corresponde a una funcion seno, dado
 ; un x [0-32] pasado como argumento (a traves de w).
@@ -160,8 +150,14 @@ dac_get_swth_value:
 ;
 
 dac_get_sine_value:
+	MOVWF	temp_work_f	; guardo el argumento
+	MOVLW	0X04
+	MOVWF	PCLATH		; me aseguro que pclath esta en la direcion correcta
+
+	MOVF	temp_work_f, W	; devuelvo el argumento
 	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
 	ADDWF	PCL, F
+
 	RETLW   .128		; x=0   0x80
 	RETLW   .152		; x=1   0x98
 	RETLW   .176		; x=2   0xB0
@@ -195,6 +191,83 @@ dac_get_sine_value:
 	RETLW   .79 		; x=30  0x4F
 	RETLW   .103		; x=31  0x67
 
+	ORG	0X0480
+;
+; Elige de que tabla de valores sacar segun la configuracion y devuelve
+; el valor indicado segun la cuenta actual que se pase como argumento
+;
+
+dac_get_func_value:
+
+	MOVWF	temp_work_f	; guardo el argumento
+	MOVLW	0X04
+	MOVWF	PCLATH		; me aseguro que pclath esta en la direcion correcta
+
+	MOVF	temp_work_f, W	; devuelvo el argumento
+	MOVLW	b'00001100'	; enmascaro bits que me dan el tipo de onda
+	ANDWF	SCON, W		; obtengo la onda seleccionada
+
+	; como no roto los valores, hare saltos de a 4 instrucciones, esto me conviene
+	; para llamar las funciones, agregar un return despues de cada una y mover el 
+	; valor a w antes de la llamada
+	
+	ADDWF	PCL, F 		; busco en la tabla indicada el valor
+
+	MOVF	temp_work_f, W	; 0
+	CALL	dac_get_squr_value	
+	RETURN
+	NOP
+	
+	MOVF	temp_work_f, W	; 4
+	CALL	dac_get_trng_value	
+	RETURN
+	NOP
+	
+	MOVF	temp_work_f, W	; 8
+	CALL	dac_get_swth_value
+	RETURN
+	NOP
+	
+	MOVF	temp_work_f, W	; 12
+	CALL	dac_get_sine_value
+	RETURN
+
+	ORG	0X04A0
+;
+; Devuelve un valor entre 0-255 que corresponde a una funcion cuadrada, dado
+; un x [0-32] pasado como argumento (a traves de w).
+;
+; f(x) = | 0   si  x < 16
+;	 | 255 si  x >= 16
+;
+
+dac_get_squr_value:
+
+	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
+	ANDLW	b'00010000'	; enmascaro el 5to bit
+	BTFSC	STATUS, Z	; si W fue cero, entonces el numero era menor a 16
+	RETLW	.0
+	RETLW	.255		; else el numero era mayor
+
+;
+; Devuelve un valor entre 0-255 que corresponde a una funcion diente de sierra, dado
+; un x [0-32] pasado como argumento (a traves de w).
+;
+; f(x) = 8x
+;
+
+dac_get_swth_value:
+	ANDLW	b'00011111'	; mascara para el argumento, solo me interesan los primeros 32 valores
+
+	BCF	STATUS, C
+	RLF	temp_work_f, F
+	BCF	STATUS, C
+	RLF	temp_work_f, F
+	BCF	STATUS, C
+	RLF	temp_work_f, W
+	
+	RETURN			; es directamente el valor del contador
+	
 ;
 ; Subrutina de interrupción
 ;
@@ -232,41 +305,6 @@ dac_tmr1_handle:
 
 	RETURN	
 
-;
-; Elige de que tabla de valores sacar segun la configuracion y devuelve
-; el valor indicado segun la cuenta actual que se pase como argumento
-;
-
-dac_get_func_value:
-	MOVWF	temp_work_f
-	MOVLW	b'00001100'	; enmascaro bits que me dan el tipo de onda
-	ANDWF	SCON, W		; obtengo la onda seleccionada
-
-	; como no roto los valores, hare saltos de a 4 instrucciones, esto me conviene
-	; para llamar las funciones, agregar un return despues de cada una y mover el 
-	; valor a w antes de la llamada
-	
-	ADDWF	PCL, F 		; busco en la tabla indicada el valor
-
-	MOVF	temp_work_f, W	; 0
-	CALL	dac_get_squr_value	
-	RETURN
-	NOP
-	
-	MOVF	temp_work_f, W	; 4
-	CALL	dac_get_trng_value	
-	RETURN
-	NOP
-	
-	MOVF	temp_work_f, W	; 8
-	CALL	dac_get_swth_value
-	RETURN
-	NOP
-	
-	MOVF	temp_work_f, W	; 12
-	CALL	dac_get_sine_value
-	RETURN
-	
 ;
 ; Subrutina que restablece el valor de precarga del timer y lo reinicia
 ;
@@ -322,7 +360,7 @@ dac_setup:
 	BANKSEL ANSELH
 	CLRF	ANSELH		; todos los pines del puerto B digitales
 	CLRF	TRISB		; todos los pines del puerto B como salida
-	
+
 ; Configuración del timer1 ------------------------------------------
 
 	BANKSEL T1CON
