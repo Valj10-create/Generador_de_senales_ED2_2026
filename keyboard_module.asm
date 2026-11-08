@@ -32,162 +32,27 @@
 ;
 ; ==================================================================================================================
 
-keyboard_timer1_prel_l EQU .0
-keyboard_timer1_prel_h EQU .0
-
-;
-; Rutina de interrupcion
-;
-
-keyboard_int:
 	
-	BTFSC	INTCON, RBIF		; interrupcion por rb?
-	CALL 	keyboard_btn_handle
+keyboard_timer1_prel_l EQU b'00100000'
+keyboard_timer1_prel_h EQU b'01001110'
 
-	BANKSEL PIR1
-	BTFSC	PIR1, TMR1IF		; interrupción por timer1?
-	CALL	keyboard_tmr1_handle
-	
-	RETURN
+	ORG	0X0300
 
 ;
-; Inicia el timer1 con la precarga necesaria para generar el debounce deseado
+; Convierte el nibble inferior de un byte en formato onehot
+; a su equivalente en decimal
 ;
-
-keyboard_tmr1_deb:
-
-	BANKSEL T1CON
-	BCF	T1CON, TMR1ON	; apago el timer
-
-	MOVF	keyboard_timer1_prel_h, W
-	MOVWF	TMR1H
-	MOVF	keyboard_timer1_prel_l, W
-	MOVWF	TMR1L		; precarga el timer
-
-	BCF	PIR1, TMR1IF	; me aseguro que la bandera este baja
-
-	BANKSEL PIE1
-	BSF	PIE1, TMR1IE	; habilito interrupciones por timer
-
-	BANKSEL T1CON
-	BSF	T1CON, TMR1ON	; enciendo el timer
-
-	RETURN
-
-;
-; Manejador de interrupcion por cambio en RB0
-;
-
-keyboard_btn_handle:
-
-	BTFSS	INTCON, RBIE	; interrupción por botón habilitada?
-	RETURN			; no, ignorar
-
-	BANKSEL PORTB
-	MOVF	PORTB, W 	; leo portb para habilitar bajar la bandera 
-	BCF	INTCON, RBIF 	; handled, bajo la bandera
-
-	BCF	INTCON, RBIE	; dejo de escuchar interrupcion por boton
-
-	CALL 	keyboard_tmr1_deb
-		
-	RETURN			; devuelvo para esperar a que el timer lance interupcion
-
-;
-; Manejador de interrupcion por TIMER1
-;
-
-keyboard_tmr1_handle:
-
-	BANKSEL PIE1
-	BTFSS	PIE1, TMR1IE	; la interrupcion por timer estaba habilitada?
-	RETURN			; no, ignoro
-
-	BANKSEL PIR1
-	BCF	PIR1, TMR1IF	; bajo la bandera
-	
-	BCF	T1CON, TMR1ON	; apago el timer
-	
-	BANKSEL PIE1
-	BCF	PIE1, TMR1IE	; deshabilito la interrupcion
-
-	BSF	EVENT, KBPOL	; poll needed
-
-	BANKSEL PORTB
-	CLRF	PORTB		; dejo todas las filas en 0 para que la próxima pulsación vuelva a generar la interrupción
-	MOVF	PORTB, W	; leo PORTB para terminar el mismatch causado por el barrido
-	
-	BCF	INTCON, RBIF	; bajo la bandera
-	BSF	INTCON, RBIE	; interrupcion por boton habilitada otra vez
-
-	RETURN
-
-;
-; Realiza un barrido por el teclado y devuelve el indice de boton presionado
-;
-
-keyboard_poll:
-
-	BANKSEL 0
-				; barrido por el teclado
-	MOVLW	.4 		; inicio el contador de filas
-	MOVWF	keyboard_rows
-	
-	MOVLW	b'00000001'	; inicio la fila actual
-	MOVWF	keyboard_row
-
-keyboard_next_row:
-	COMF	keyboard_row, W 
-	ANDLW	b'00001111'	; seteo a 0 sólo la fila actual, las demas permanecen en 1
-	MOVWF	PORTB	 	; 
-
-	MOVLW	.4 		; inicio el contador de columnas
-	MOVWF	keyboard_columns
-	
-	MOVLW	b'00010000'	; inicio la columna actual
-	MOVWF	keyboard_column
-
-keyboard_next_column:
-	MOVF	keyboard_column, W
-	ANDWF	PORTB, W 	; enmascaro el valor lógico del pin que corresponde a la columna que quiero revisar
-
-	BTFSC	STATUS, Z	; si el numero fue 0 significa que el botón estaba presionado, son las fila y columna seleccionadas
-	GOTO	keyboard_found	; botón encontrado
-
-	BCF	STATUS, C 	; limpio carry por las dudas
-	RLF	keyboard_column, F 	; no, siguiente columna
-
-	DECFSZ	keyboard_columns, F
-	GOTO	keyboard_next_column
-
-	BCF	STATUS, C
-	RLF	keyboard_row, F 		; siguiente fila
-	
-	DECFSZ	keyboard_rows, F
-	GOTO	keyboard_next_row
-
-	RETLW	0x80		; si no encontre nada devuelvo un valor absourdo
-
-keyboard_found:
-	MOVF	keyboard_row, W  		; row es como: 0000 xxxx
-	CALL	keyboard_onehot_to_number	; convierte la fila aun numero binario entre 0 y 3	
-	MOVWF	keyboard_row 			; lo devuelva a row
-
-	SWAPF	keyboard_column, W 		; lo mismo con la columna, solo que hago swap primero porque los nibbles estan intercambiados
-	CALL 	keyboard_onehot_to_number
-	MOVWF	keyboard_column
-	
-	BCF	STATUS, C 		; limpio carry por las dudas
-	RLF	keyboard_row, F
-	RLF	keyboard_row, F 			; multiplico row por 4
-	MOVF	keyboard_column, W
-	ADDWF	keyboard_row, W 			; sumo (row * 4 + column) = nro boton
-
-	RETURN
 	
 keyboard_onehot_to_number:
-	ANDLW	b'00001111'
+
+	MOVWF	temp_work_f	; guardo el argumento temporalmente
+	MOVLW	0X03 		; conservo la ubicacion macro de la tabla
+	MOVWF	PCLATH
+	
+	MOVF	temp_work_f, W 	; obtengo el argumento nuevamente
+	ANDLW	b'00001111'	; limito a 16 valores
 	ADDWF	PCL, F
+	
 	RETLW	0X00	;0000 0000 <- invalido
 	RETLW	0X00	;0000 0001
 	RETLW	0X01	;0000 0010
@@ -204,6 +69,171 @@ keyboard_onehot_to_number:
 	RETLW	0X00	;0000 1101 <- invalido
 	RETLW	0X00	;0000 1110 <- invalido
 	RETLW	0X00	;0000 1111 <- invalido
+
+;
+; Rutina de interrupcion
+;
+
+keyboard_int:
+
+	BANKSEL PIR1
+	BTFSC	PIR1, TMR1IF		; interrupción por timer1?
+	CALL	keyboard_tmr1_handle
+	
+	BTFSC	INTCON, RBIF		; interrupcion por rb?
+	CALL 	keyboard_btn_handle
+	
+	RETURN
+
+;
+; Manejador de interrupcion por TIMER1
+;
+
+keyboard_tmr1_handle:
+
+	BANKSEL PIE1
+	BTFSS	PIE1, TMR1IE	; la interrupcion por timer estaba habilitada?
+	RETURN			; no, ignoro
+
+	BANKSEL PIR1
+	BCF	PIR1, TMR1IF	; bajo la bandera
+
+	BANKSEL T1CON
+	BCF	T1CON, TMR1ON	; apago el timer
+	
+	BANKSEL PIE1
+	BCF	PIE1, TMR1IE	; deshabilito la interrupcion
+	
+	BANKSEL PORTB
+	COMF	PORTB, W	; leo PORTB para terminar el mismatch causado por el barrido
+	ANDLW	b'11110000'
+
+	BTFSS	STATUS, Z	; si no hay columnas activas?
+	BSF	EVENT, KBPOL	; levanto la bandera para que se realice polling
+
+	BANKSEL PORTB
+	CLRF	PORTB		; dejo todas las filas en 0 para que la próxima pulsación vuelva a generar la interrupción
+	
+	MOVF	PORTB, W	; leo PORTB para terminar el mismatch causado por el barrido
+	BCF	INTCON, RBIF	; bajo la bandera
+	BSF	INTCON, RBIE	; interrupcion por boton habilitada otra vez
+
+	RETURN
+
+;
+; Manejador de interrupcion por cambio en RB0
+;
+
+keyboard_btn_handle:
+
+	BTFSS	INTCON, RBIE	; interrupción por botón habilitada?
+	RETURN			; no, ignorar
+
+	BCF	INTCON, RBIE	; dejo de escuchar interrupcion por boton
+
+	BANKSEL PORTB
+	MOVF	PORTB, W 	; leo portb para habilitar bajar la bandera 
+	BCF	INTCON, RBIF 	; handled, bajo la bandera
+
+	CALL 	keyboard_tmr1_deb
+		
+	RETURN			; devuelvo para esperar a que el timer lance interupcion
+
+;
+; Inicia el timer1 con la precarga necesaria para generar el debounce deseado
+;
+
+keyboard_tmr1_deb:
+
+	BANKSEL T1CON
+	BCF	T1CON, TMR1ON	; apago el timer
+
+	MOVLW	keyboard_timer1_prel_h
+	MOVWF	TMR1H
+	MOVLW	keyboard_timer1_prel_l
+	MOVWF	TMR1L		; precarga el timer
+
+	BCF	PIR1, TMR1IF	; me aseguro que la bandera este baja
+
+	BANKSEL PIE1
+	BSF	PIE1, TMR1IE	; habilito interrupciones por timer
+
+	BANKSEL T1CON
+	BSF	T1CON, TMR1ON	; enciendo el timer
+
+	RETURN
+
+
+;
+; Realiza un barrido por el teclado y devuelve el indice de boton presionado
+;
+
+keyboard_poll:
+
+	BANKSEL 0
+				; barrido por el teclado
+	MOVLW	.4 		; inicio el contador de filas
+	MOVWF	keyboard_rows
+	
+	MOVLW	b'00000001'	; inicio la fila actual
+	MOVWF	keyboard_row
+
+keyboard_next_row:
+
+	COMF	keyboard_row, W 
+	ANDLW	b'00001111'	; seteo a 0 sólo la fila actual, las demas permanecen en 1
+	MOVWF	PORTB	 	; 
+
+	MOVLW	.4 		; inicio el contador de columnas
+	MOVWF	keyboard_columns
+	
+	MOVLW	b'00010000'	; inicio la columna actual
+	MOVWF	keyboard_column
+
+keyboard_next_column:
+
+	MOVF	keyboard_column, W
+	ANDWF	PORTB, W 	; enmascaro el valor lógico del pin que corresponde a la columna que quiero revisar
+
+	BTFSC	STATUS, Z	; si el numero fue 0 significa que el botón estaba presionado, son las fila y columna seleccionadas
+	GOTO	keyboard_found	; botón encontrado
+
+	BCF	STATUS, C 	; limpio carry por las dudas
+	RLF	keyboard_column, F 	; no, siguiente columna
+
+	DECFSZ	keyboard_columns, F
+	GOTO	keyboard_next_column
+
+	BCF	STATUS, C
+	RLF	keyboard_row, F	; siguiente fila
+	
+	DECFSZ	keyboard_rows, F
+	GOTO	keyboard_next_row
+
+	RETLW	0X80		; si no encontre nada devuelvo un valor absourdo
+
+keyboard_found:
+
+	MOVLW	b'11110000'
+	BANKSEL TRISB
+	MOVWF	TRISB
+
+	BANKSEL 0
+	MOVF	keyboard_row, W  		; row es como: 0000 xxxx
+	CALL	keyboard_onehot_to_number	; convierte la fila aun numero binario entre 0 y 3	
+	MOVWF	keyboard_row 			; lo devuelva a row
+
+	SWAPF	keyboard_column, W 		; lo mismo con la columna, solo que hago swap primero porque los nibbles estan intercambiados
+	CALL 	keyboard_onehot_to_number
+	MOVWF	keyboard_column
+	
+	BCF	STATUS, C 		; limpio carry por las dudas
+	RLF	keyboard_row, F
+	BCF	STATUS, C 		; limpio carry por las dudas
+	RLF	keyboard_row, W 	; multiplico row por 4
+	ADDWF	keyboard_column, W 	; sumo (row * 4 + column) = nro boton
+
+	RETURN
 	
 keyboard_setup:
 
@@ -241,8 +271,8 @@ keyboard_setup:
 
 	BANKSEL T1CON
 	BCF	T1CON, TMR1GE	; gate enable
-	BSF	T1CON, T1CKPS0
-	BCF	T1CON, T1CKPS1	; 01 opcion de prescaler = 2
+	BCF	T1CON, T1CKPS0
+	BCF	T1CON, T1CKPS1	; 00 opcion de prescaler = 1
 	BCF	T1CON, T1OSCEN
 	
 	BCF	T1CON, TMR1CS	; clock source es FOSC/4
@@ -273,23 +303,13 @@ keyboard_setup:
 ;
 
 keyboard_task:
-	BANKSEL 0
-	BTFSS	EVENT, KBPOL		; poll needed?
-	RETURN				; no	
 
-	CALL	keyboard_poll	
-
-	BANKSEL 0
-	MOVWF	KBREAD
-	BCF	EVENT, KBPOL	
-
+	BTFSS	EVENT, KBPOL	; se espera polling?
 	RETURN
-
-
-
-
-
-
+	CALL	keyboard_poll	; hago polling
+	MOVWF	KBREAD		; guardo el boton leido
+	BCF	EVENT, KBPOL	; bajo la bandera
+	RETURN
 
 
 

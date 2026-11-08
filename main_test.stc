@@ -20,7 +20,6 @@
 # Processor position:
 module library libgpsim_modules
 
-
 # Modules:
 p16f887.BreakOnReset = true
 p16f887.SafeMode = true
@@ -158,13 +157,6 @@ module load led_7segments disp3
 disp3.xpos = 738
 disp3.ypos = 72
 
-module load pullup pullup4
-pullup4.capacitance = 0
-pullup4.resistance = 10000
-pullup4.voltage = 5
-pullup4.xpos = 270
-pullup4.ypos = 270
-
 module load not not0
 not0.xpos = 234
 not0.ypos = 72
@@ -219,6 +211,18 @@ attach c2 p16f887.portc2 not2.in0
 node c3
 attach c3 p16f887.portc3 not3.in0
 
+node kb_c_0
+attach kb_c_0 s0.A s4.A s8.A s12.A p16f887.portb4
+
+node kb_c_1
+attach kb_c_1 s1.A s5.A s9.A s13.A p16f887.portb5
+
+node kb_c_2
+attach kb_c_2 s2.A s6.A s10.A s14.A p16f887.portb6
+
+node kb_c_3
+attach kb_c_3 s3.A s7.A s11.A s15.A p16f887.portb7
+
 node kb_r_0
 attach kb_r_0 s0.B s1.B s2.B s3.B p16f887.portb0
 
@@ -231,28 +235,16 @@ attach kb_r_2 s8.B s9.B s10.B s11.B p16f887.portb2
 node kb_r_3
 attach kb_r_3 s12.B s13.B s14.B s15.B p16f887.portb3
 
-node kb_c_0
-attach kb_c_0 s0.A s4.A s8.A s12.A p16f887.portb4 pullup4.pin
-
-node kb_c_1
-attach kb_c_1 s1.A s5.A s9.A s13.A p16f887.portb5
-
-node kb_c_2
-attach kb_c_2 s2.A s6.A s10.A s14.A p16f887.portb6
-
-node kb_c_3
-attach kb_c_3 s3.A s7.A s11.A s15.A p16f887.portb7
-
-node disp0cc
-attach disp0cc not0.out disp0.cc
-
-node disp1cc
-attach disp1cc not1.out disp1.cc
-
-node disp2cc
-attach disp2cc not2.out disp2.cc
-
-node disp3cc
-attach disp3cc not3.out disp3.cc
+#node disp0cc
+#attach disp0cc not0.out disp0.cc
+#
+#node disp1cc
+#attach disp1cc not1.out disp1.cc
+#
+#node disp2cc
+#attach disp2cc not2.out disp2.cc
+#
+#node disp3cc
+#attach disp3cc not3.out disp3.cc
 
 # End.

@@ -276,7 +276,7 @@ setup:
 	
 loop:	
 	
-;	CALL	keyboard_task
+	CALL	keyboard_task
 		
 	MOVF	KBREAD, W
 	XORWF	KBREADL, W 	; comparo el registro de teclado con su latch
