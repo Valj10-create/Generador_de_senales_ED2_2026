@@ -4,5 +4,6 @@
 *.hex
 
 /bin
+/.venv
 
 ~$*.xlsx

@@ -10,14 +10,17 @@
 ; 
 ; ============================================================================================================
 
+	ORG	0X0700
 ;
 ; Subrutina de interrupción
 ;
 
 com_int:
+
 	BANKSEL PIR1
-	BTFSC	PIR1, TXIF
-	CALL	com_tx_handle
+	BTFSC	PIR1, TXIF	; interrupcion por TX vacio?
+	CALL	com_tx_handle	; si
+	
 	RETURN
 
 ;
@@ -25,27 +28,32 @@ com_int:
 ;
 
 com_tx_handle:
+
 	BANKSEL PIE1
-	BTFSC	PIE1, TXIE	; interrupcion habilitada?
+	BTFSS	PIE1, TXIE	; interrupcion habilitada?
 	RETURN
 
-	BTFSC	EVENT, DATA	; hay datos nuevos para transmitir?
-
+	BANKSEL 0
+	BCF	STATUS, IRP	; direccionamiento indirecto en bancos 1 y 2
+	
 	MOVF	com_head_ptr, W
 	ANDLW	b'00011111'	; limito la cuenta a 32
-	ADDWF	com_head_base	; sumo la direccion inicial del registro rotativo
-
+	ADDLW	data_reg_base	; sumo la direccion inicial del registro rotativo
+	MOVWF	FSR
+	
 	BANKSEL TXREG
 
-	MOVF	INDF, W
-	MOVWF	TXREG	
+	MOVF	INDF, W		; muevo el dato actual apuntado
+	MOVWF	TXREG		; al registro tx
 
 	BANKSEL 0
 	INCF	com_head_ptr, F ; incremento el apuntador
-	DECFSZ	DATAN		; decremento la cuenta de datos por enviar
+	DECFSZ	DATAN, F	; decremento la cuenta de datos por enviar
 	RETURN
 
-	BCF	EVENT, DATA 	; bajo la bandera
+	BCF	EVENT, RDATA 	; bajo la bandera
+	BANKSEL PIE1
+	BCF	PIE1, TXIE	; deshabilito las interrupciones por TX
 	RETURN
 
 ;
@@ -57,14 +65,14 @@ com_setup:
 ; Configuracion de baud rate ------------------------------------
 
 	BANKSEL	BAUDCTL
-	BCF	BAUDCTL, BRG16
+	BSF	BAUDCTL, BRG16
 
 	BANKSEL TXSTA	
-	BCF	TXSTA, BRGH
+	BSF	TXSTA, BRGH
 	
 	BANKSEL SPBRG 	
 	CLRF	SPBRGH
-	MOVLW	.5
+	MOVLW	.95
 	MOVWF	SPBRG 		; inicio el generador de baudios a 10417
 
 ; Configuracion de la transmision -------------------------------
@@ -78,6 +86,6 @@ com_setup:
 	BSF	RCSTA, SPEN	; habilito puerto
 
 	BANKSEL PIE1
-	BSF	PIE1, TXIE 	; habilito interrupciones por TX
+	BCF	PIE1, TXIE 	; interrupciones por TX inicialmente deshabilitadas
 
 	RETURN

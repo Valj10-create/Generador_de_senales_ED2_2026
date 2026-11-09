@@ -15,6 +15,7 @@
 ; cuenta a la hora de la conversión. Se usa un cristal externo oscilador de 8MHz.
 ; ============================================================================================================
 
+	ORG 0X0600
 ;
 ; Subrutina de interrupción
 ;
@@ -31,6 +32,7 @@ adc_int:
 ;
 
 adc_handle:
+
 	BANKSEL PIE1
 	BTFSS	PIE1, ADIE	; interrupcion por ADC habilitada ?
 	RETURN
@@ -39,17 +41,23 @@ adc_handle:
 	BCF	PIR1, ADIF	; bajo la bandera
 
 	BANKSEL ADRESH
-	
+	BCF	STATUS, IRP	; direccionamiento indirecto en bancos 1 y 2
+		
 	MOVF	adc_head_ptr, W
 	ANDLW	b'00011111'	; tomo los primeros 32 valores
-	ADDWF	adc_head_base, W	; sumo el contador a la direccion base del registro
+	ADDLW	data_reg_base	; sumo el contador a la direccion base del registro
 	MOVWF	FSR		; muevo el valor para direccionamiento indirecto
 	MOVF	ADRESH, W	; tomo los 8 bits mas significativos de la conversion
 	MOVWF	INDF		; escribo el valor de la conversion en el buffer rotativo
 	INCF	adc_head_ptr, F	; incremento el apuntador del buffer
+	INCF	DATAN, F 	; incremento la cuenta de datos disponibles
 	
-	; escribir el resultado de la conversion a un buffer rotativo de x cantidad de bytes
+	BANKSEL 0
+	BSF	EVENT, RDATA	; datos disponibles
 
+	BANKSEL ADCON0
+	BSF	ADCON0, GO	; leo el proximo valor
+	
 	RETURN
 
 ;
@@ -64,7 +72,7 @@ adc_setup:
 	MOVLW	b'01000000'	; configuro puerto AN6 como analogico
 	MOVWF	ANSEL
 
-	BANKSEL TRISA
+	BANKSEL TRISE
 	MOVLW	b'00000010'	; puerto RE1 (compartido con AN6 como entrada)
 	
 ; Configuracion del ADC -------------------------------------
@@ -73,7 +81,7 @@ adc_setup:
 
 	BCF	ADCON1, ADFM		; formateo de salida, justifico a la izquierda en ADRESH
 	BCF	ADCON1, VCFG1		; referencia negativa en V_ss
-	BSF	ADCON1, VCFG0		; referencia positiva externa en pin V_ref+
+	BCF	ADCON1, VCFG0		; referencia positiva en V_dd
 
 	BANKSEL ADCON0
 
@@ -94,11 +102,6 @@ adc_setup:
 	BSF	PIE1, ADIE	; activo interrupciones por ADC
 
 ; Inicializacion de variables ---------------------------------
-
-	BANKSEL ANSEL		; se encuentran en el mismo banco que el registro ansel por practicidad
-	
-	MOVLW	0X40
-	MOVWF	adc_head_base	; define el registro inicial de un buffer rotativo de 32 bytes
 
 	CLRF	adc_head_ptr 	; el contador para el apuntador arranca en 0
 	

@@ -45,8 +45,13 @@ int:
 	GOTO	int_end 		; salteo todo lo que tiene que ver con la señal
 	
 	CALL	dac_int
-;	CALL	adc_int
-;	CALL	com_int
+	CALL	adc_int
+
+	BANKSEL PIE1
+	BTFSC	EVENT, RDATA		; si hay datos leidos habilito la interrupcion por TX
+	BSF	PIE1, TXIE
+
+	CALL	com_int
 
 int_end:
 	MOVF	temp_fsr, W
@@ -301,24 +306,28 @@ sgen_setup:
 
 	CALL	keyboard_deset
 	CALL 	dac_setup		
-;	CALL 	adc_setup		
-;	CALL 	com_setup		
+	CALL 	adc_setup		
+	CALL 	com_setup		
 
 ; Configuracion de interrupciones -----------------------------
 
         BSF     INTCON, GIE
 
-;        BANKSEL ADCON0
-;        BSF     ADCON0, GO      ; inicio la conversion
+        BANKSEL ADCON0
+        BSF     ADCON0, GO      ; inicio la conversion
 
 sgen_loop:
+	BANKSEL TXREG
+	INCF	0X7F, F
+	MOVF	0X7F, W
+	MOVWF	TXREG
 	GOTO 	sgen_loop
 
 	#include "display_module.asm"
 	#include "keyboard_module.asm"
 	#include "dac_module.asm"
-;        #include "adc_module.asm"
-;        #include "com_module.asm"
+        #include "adc_module.asm"
+        #include "com_module.asm"
 
         END
 
