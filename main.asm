@@ -38,6 +38,7 @@ int:
 
 	CALL	display_int
 
+	BANKSEL 0
 	BTFSS	SCON, SENA		; produccion de señal habilitada?
 	CALL	keyboard_int		; si, salteo lecturas del teclado
 
@@ -47,10 +48,14 @@ int:
 	CALL	dac_int
 	CALL	adc_int
 
+	BANKSEL 0
+	BTFSS	EVENT, RDATA		; si hay datos leidos habilito la interrupcion por TX
+	GOTO	int_cont
+
 	BANKSEL PIE1
-	BTFSC	EVENT, RDATA		; si hay datos leidos habilito la interrupcion por TX
 	BSF	PIE1, TXIE
 
+int_cont:
 	CALL	com_int
 
 int_end:
@@ -303,7 +308,9 @@ loop:
 sgen_setup:
 
         BCF     INTCON, GIE
-
+	BTFSC	INTCON, GIE
+	GOTO	$-2
+	
 	CALL	keyboard_deset
 	CALL 	dac_setup		
 	CALL 	adc_setup		
@@ -311,16 +318,12 @@ sgen_setup:
 
 ; Configuracion de interrupciones -----------------------------
 
+	CALL	adc_begin
+
+	BSF	INTCON, PEIE
         BSF     INTCON, GIE
 
-        BANKSEL ADCON0
-        BSF     ADCON0, GO      ; inicio la conversion
-
 sgen_loop:
-	BANKSEL TXREG
-	INCF	0X7F, F
-	MOVF	0X7F, W
-	MOVWF	TXREG
 	GOTO 	sgen_loop
 
 	#include "display_module.asm"

@@ -34,6 +34,11 @@ com_tx_handle:
 	RETURN
 
 	BANKSEL 0
+	MOVF	DATAN, W
+	BTFSC	STATUS, Z
+	RETURN			; si datan dice que no hay datos no sigo
+
+	BANKSEL 0
 	BCF	STATUS, IRP	; direccionamiento indirecto en bancos 1 y 2
 	
 	MOVF	com_head_ptr, W
@@ -52,8 +57,10 @@ com_tx_handle:
 	RETURN
 
 	BCF	EVENT, RDATA 	; bajo la bandera
+
 	BANKSEL PIE1
 	BCF	PIE1, TXIE	; deshabilito las interrupciones por TX
+
 	RETURN
 
 ;
@@ -61,6 +68,12 @@ com_tx_handle:
 ;
 
 com_setup:
+
+; Configuracion de puertos - ------------------------------------
+
+	BANKSEL TRISC
+	BSF	TRISC, 7
+	BSF	TRISC, 6	; puertos como entrada
 
 ; Configuracion de baud rate ------------------------------------
 
@@ -72,8 +85,8 @@ com_setup:
 	
 	BANKSEL SPBRG 	
 	CLRF	SPBRGH
-	MOVLW	.95
-	MOVWF	SPBRG 		; inicio el generador de baudios a 10417
+	MOVLW	.51
+	MOVWF	SPBRG 		; inicio el generador de baudios a 19231
 
 ; Configuracion de la transmision -------------------------------
 
@@ -87,5 +100,10 @@ com_setup:
 
 	BANKSEL PIE1
 	BCF	PIE1, TXIE 	; interrupciones por TX inicialmente deshabilitadas
+
+; Inicializacion de variables --- -------------------------------
+
+	BANKSEL 0
+	CLRF	com_head_ptr
 
 	RETURN
