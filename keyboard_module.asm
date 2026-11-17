@@ -11,15 +11,19 @@
 ;
 ; Se tiene un teclado matricial 4x4 para la configuración inicial del dispositivo. Los botones del teclado
 ; permiten seleccionar la forma de onda y la frecuencia de la señal, asi como tambien iniciar el generador.
-; El dispositivo sigue produciendo una señal en la salida hasta que se produzca un reseteo.
+; Presionar el boton de inicio produce un deshabilitamiento del teclado, para impedir problemas de colision en
+; el puerto B del pic.
 ;
+; Busqueda de señal:
 ; Ponemos RB0-RB3 a LOW (0), y escuchamos el puerto B donde esta el teclado para interrupcion por cambio producidas
-; en RB4-RB7.
-; Dentro de la rutina de interrupcion realizamos un barrido entre RB0-RB3 para ver que fila y columna se pulsó, y
-; llevamos a cabo la operacion respectiva.
-; El teclado comparte el modulo timer1 y el puerto b con el DAC, lo cual no es un problema pues estan pensados
-; para trabajar a destiempo, el teclado en la fase de configuracion y el dac en la fase de produccion de la
-; señal
+; en RB4-RB7. Detectar un boton presionado levanta la bandera KBPOL del registro EVENT, que indica al loop
+; principal que se debe realizar polling del teclado. Esto es para mantener el procedimiento computacional
+; intensivo fuera de la rutina de interrupcion.
+; El polling consiste en un barrido entre RB0-RB3 y RB4-RB7 para ver que fila y columna fueron presionadas.
+; Devuelve un numero decimal que indica el numero de boton presionado, que se guarda en KBREAD.
+; Este modulo comparte el modulo timer1 y el puerto b con el modulo DAC, lo cual no es un problema pues estan
+; pensados para trabajar a destiempo, el teclado en la fase de configuracion y el dac en la fase de produccion de
+; la señal
 ;
 ; MAPA DEL TECLADO
 ; filas son salidas y las columnas son entradas
@@ -78,10 +82,10 @@ keyboard_int:
 
 	BANKSEL PIR1
 	BTFSC	PIR1, TMR1IF		; interrupción por timer1?
-	CALL	keyboard_tmr1_handle
+	CALL	keyboard_tmr1_handle 	; si, manejo
 	
 	BTFSC	INTCON, RBIF		; interrupcion por rb?
-	CALL 	keyboard_btn_handle
+	CALL 	keyboard_btn_handle	; si, manejo
 	
 	RETURN
 
@@ -105,10 +109,10 @@ keyboard_tmr1_handle:
 	BCF	PIE1, TMR1IE	; deshabilito la interrupcion
 	
 	BANKSEL PORTB
-	COMF	PORTB, W	; leo PORTB para terminar el mismatch causado por el barrido
-	ANDLW	b'11110000'
-
-	BTFSS	STATUS, Z	; si no hay columnas activas?
+	COMF	PORTB, W	; leo PORTB para terminar el mismatch causado por el barrido, COMPLEMENTO !!!
+	ANDLW	b'11110000'	; enmascaro para sacar el valor de las 4 columnas, ahora complementada, la que esta presionada es un 1
+	
+	BTFSS	STATUS, Z	; si no hay columnas activas? hago salida rapida, no pe importa CUAL esta activa, solo si hay alguna
 	BSF	EVENT, KBPOL	; levanto la bandera para que se realice polling
 
 	BANKSEL PORTB
@@ -146,7 +150,7 @@ keyboard_btn_handle:
 keyboard_tmr1_deb:
 
 	BANKSEL T1CON
-	BCF	T1CON, TMR1ON	; apago el timer
+	BCF	T1CON, TMR1ON	; apago el timer, por las dudas
 
 	MOVLW	keyboard_timer1_prel_h
 	MOVWF	TMR1H
@@ -219,18 +223,19 @@ keyboard_found:
 	MOVWF	TRISB
 
 	BANKSEL 0
-	MOVF	keyboard_row, W  		; row es como: 0000 xxxx
+	MOVF	keyboard_row, W  		; row es como: xxxx 0001/0010/0100/1000
 	CALL	keyboard_onehot_to_number	; convierte la fila aun numero binario entre 0 y 3	
 	MOVWF	keyboard_row 			; lo devuelva a row
 
-	SWAPF	keyboard_column, W 		; lo mismo con la columna, solo que hago swap primero porque los nibbles estan intercambiados
-	CALL 	keyboard_onehot_to_number
-	MOVWF	keyboard_column
+	SWAPF	keyboard_column, W 		; column es como 0001/0010/0100/1000 xxxx
+	CALL 	keyboard_onehot_to_number	; lo mismo con la columna, solo que hago swap primero porque los nibbles estan intercambiados
+	MOVWF	keyboard_column 		; pongo el numero que obtengo entre 0 y 3 de vuelta en la variable
 	
 	BCF	STATUS, C 		; limpio carry por las dudas
 	RLF	keyboard_row, F
 	BCF	STATUS, C 		; limpio carry por las dudas
 	RLF	keyboard_row, W 	; multiplico row por 4
+	
 	ADDWF	keyboard_column, W 	; sumo (row * 4 + column) = nro boton
 
 	RETURN
@@ -263,8 +268,8 @@ keyboard_setup:
 
 	BSF	INTCON, RBIE
 	
-	BANKSEL IOCB
-	MOVLW	b'11110000'
+	BANKSEL IOCB	
+	MOVLW	b'11110000'	; escucho interrupcion solo en las columnas
 	MOVWF	IOCB
 
 ; Configuracion de timer1 ------------------------------------------------
@@ -346,8 +351,3 @@ keyboard_task:
 	MOVWF	KBREAD		; guardo el boton leido
 	BCF	EVENT, KBPOL	; bajo la bandera
 	RETURN
-
-
-
-
-

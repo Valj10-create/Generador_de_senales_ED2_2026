@@ -1,5 +1,4 @@
 
-
 ; TP Final - Electronica Digital 2 - Display Module
 
 ; Autores:
@@ -10,15 +9,13 @@
 
 ; Descripcion ======================================================================================================
 ;
-; Se tiene un display de 7 segmentos de 4 digitos para mostrar la configuración actual del dispositivo.
+; Se tiene un display de 7 segmentos de 4 digitos para mostrar la frecuencia seleccionada.
 ; Este programa asume que los segmentos del display corresponden a los bits del puerto D como sigue:
 ;	 --	-> 0
 ;	|  |	-> 1,2
 ;	 --	-> 3
 ;	|  |	-> 4,5
 ;	 --  .	-> 6,7
-; Para conectar debo corroborar con la hoja de datos del display para asegurarme que mapeo correctamente
-; a los pines correspondientes del display.
 ;
 ; Todo el tiempo estoy multiplexando entre los displays cada 5ms (20ms para una vuelta), controlando a través
 ; de los pines del puerto c, osea:
@@ -40,16 +37,20 @@
 ; 
 ; ==================================================================================================================
 
+display_tmr0_preload EQU .101	; precarga del timer para que cuente la cantidad que quiero
+
 ;
 ; Tabla de traduccion de numero a digitos encendidos en el display de 7 segmentos	
 ;
 	ORG	0X0200
 
 display_table:
-	MOVWF	temp_work_f
+	MOVWF	temp_work_f	; guardo argumento
+	
 	MOVLW	0X02
-	MOVWF	PCLATH
-	MOVF	temp_work_f, W
+	MOVWF	PCLATH 		; seteo los bits de pclath
+
+	MOVF	temp_work_f, W	; recupero
 	ANDLW	b'00001111'	; limito w a 16 bits, para evitar errores de aumento en el PCL
 	ADDWF	PCL, F		; sumar el numero en w al program counter, esto selecciona el numero que mostraremos
 				; en el display de 7 segmentos
@@ -63,13 +64,12 @@ display_table:
 	RETLW	b'00100101'	; 7
 	RETLW	b'01111111'	; 8
 	RETLW	b'01101111'	; 9
-	RETLW	b'00111111'	; A
-	RETLW	b'01111010'	; B
-	RETLW	b'01010011'     ; C
-	RETLW	b'01111100'     ; D
-	RETLW	b'01011011'     ; E
-	RETLW	b'00011011'     ; F
-
+	RETLW	b'11110111'	; 0.
+	RETLW	b'10100100'	; 1.
+	RETLW	b'11011101'	; 2.
+	RETLW	b'11101101'	; 3.
+	RETLW	b'10101110'	; 4.
+	RETLW	b'11101011'	; 5.
 ;
 ; Traduce el número de iteracion a la multiplexación del display correspondiente
 ;
@@ -77,20 +77,19 @@ display_table:
 	
 display_number_to_onehot:
 	MOVWF	temp_work_f
+
 	MOVLW	0X02
 	MOVWF	PCLATH
-	MOVF	temp_work_f, W
+
+	MOVF	temp_work_f, W	; paso como arg un numero entre 0 y 3
 	ANDLW	b'00000011'	; limito a 4 posibilidades
-;	CLRF	PCLATH
+
 	ADDWF	PCL, F
 	
-	RETLW	b'00000001'
-	RETLW	b'00000010'
-	RETLW	b'00000100'
-	RETLW	b'00001000'
-
-
-display_tmr0_preload EQU .101
+	RETLW	b'00000001'	; selecciono display 0
+	RETLW	b'00000010'	; selecciono display 1
+	RETLW	b'00000100'	; selecciono display 2
+	RETLW	b'00001000'	; selecciono display 3
 
 ;
 ; Subrutina de interrupcion
@@ -114,25 +113,27 @@ display_tmr0_handle:
 
 	BCF	INTCON, T0IF		; bajo la bandera
 	
-	CALL	display_tmr0_reset	; reinicio el timer	
+	CALL	display_tmr0_reset	; reinicio el timer
 
-	BANKSEL 0 
+	BANKSEL 0
 	BCF	STATUS, IRP		; direccionamiento indirecto en los bancos 0 y 1
+
 	CLRF	PORTC			; limpio el puerto de multiplexado para evitar ghosting del dígito	
 
-	MOVF	display_head_ptr, W 	
-	ANDLW	b'00000011' 		; limito el conteo a 4
-	ADDWF	display_head_base, W 	; computo la direcion del digito actual a mostrar
+	MOVF	display_head_ptr, W 	; contador del puntero del display, cuenta de 0 a 3
+	ANDLW	b'00000011' 		; limito el conteo a 4, para asegurarme que estoy contando de 0 a 3
+	ADDLW	display_head_base 	; sumo el contador sy la direccion base del registro de digitos
 
 	MOVWF	FSR
 	MOVF	INDF, W			; saco el valor del digito a mostrar por direccionamiento indirecto
 	CALL 	display_table 		; traduzco el valor de un número a la combinacion de leds que lo muestra en el display
 
 	BANKSEL PORTD
-	MOVWF	PORTD			; seteo el dígito actual
+	MOVWF	PORTD			; pongo el valor que me dio la funcion anterior para setear el dígito actual
 	
-	MOVF	display_head_ptr, W 	
-	CALL	display_number_to_onehot; consigo el valor para multiplexar al display indicado
+	MOVF	display_head_ptr, W 	; saco el valor del puntero, que me indica el display actual entre 0 y 3
+	CALL	display_number_to_onehot; traduzco el valor de display actual a el pin del puerto c que debo encender
+
 	BANKSEL PORTC
 	MOVWF	PORTC			; cambio al siguiente display 
 
@@ -146,8 +147,8 @@ display_tmr0_handle:
 display_tmr0_reset:
 
 	BANKSEL 0
-	MOVLW	display_tmr0_preload
-	MOVWF	TMR0			; coloco la precarga
+	MOVLW	display_tmr0_preload	; toma el valor de precarga
+	MOVWF	TMR0			; coloco la precarga en el timer, efectivamente lo reseteo
 
 	RETURN
 	
@@ -180,10 +181,6 @@ display_setup:
 ; Inicializacion de variables ----------------------------------
 
 	BANKSEL 0
-
-	MOVLW	DIG0
-	MOVWF	display_head_base
-
 	CLRF	display_head_ptr
 
 ; Configuracion de interrupciones -------------------------------
@@ -191,16 +188,3 @@ display_setup:
 	CALL	display_tmr0_reset
 
 	RETURN
-
-
-
-
-
-
-
-
-
-
-
-
-

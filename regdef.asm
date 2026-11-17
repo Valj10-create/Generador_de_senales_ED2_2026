@@ -9,12 +9,12 @@ com_head_ptr EQU 0x26
 KBREADL EQU 0X2E
 KBREAD EQU 0x2F
 display_head_ptr EQU 0x30
-display_head_base EQU 0x31
 adc_head_ptr EQU 0x32
 
 
+display_head_base EQU 0x35
 DIG0 EQU 0X35
-DIG1 EQU 0X36
+DIG1 EQU 0X36 
 DIG2 EQU 0X37
 DIG3 EQU 0X38
 
@@ -39,7 +39,3 @@ SFRC1   EQU     5
 SFRC2   EQU     6
 SENA    EQU     7
 INST EQU 0x76
-
-
-
-

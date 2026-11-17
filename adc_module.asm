@@ -13,10 +13,14 @@
 ; un registro comun.
 ; La amplitud de la señal esta dada por V_DD. Se usa un cristal externo oscilador de 4MHz.
 ; El muestreo del ADC es controlado por interrupciones por Timer2, el ultimo timer disponible del chip.
-; Usamos una frcuencia de muestreo que corresponde al doble de frecuencia de la señal mayor, por teorema
+; Usamos una frecuencia de muestreo que corresponde al doble de frecuencia de la señal mayor, por teorema
 ; de Nyquist. Por lo tanto necesitamos una frecuencia de muestreo de 1kHz, equivalente a muestrear cada 
 ; 1ms. Configuramos Timer2 con prescaler 1:4, periodo 250 y postcaler 1:1. 1000 instrucciones en total,
 ; que con Fosc/4, Fosc=4Mhz equivalen a 1ms.
+; Usaremos los 8 bits mas significativos de la lectura, los cuales se guardaran en un registro rotativo de
+; 32 bytes a medida que se incrementa el registro DATAN, que indica la cantidad de datos leidos. Esto sirve
+; para cordinar con el modulo de comunicacion serial para la transmision de las lecturas.
+; Cada lectura levanta la bandera RDATA de EVENT, para indicar que se leyeron nuevos datos.
 ; ============================================================================================================
 
 	ORG 0X0600
@@ -53,7 +57,7 @@ adc_handle:
 	BTFSC	DATAN, 5	; si el 5to bit esta set, hay mas de 32 valores, hubo overflow
 	RETURN
 		
-	MOVF	adc_head_ptr, W
+	MOVF	adc_head_ptr, W 
 	ANDLW	b'00011111'	; tomo los primeros 32 valores
 	ADDLW	data_reg_base	; sumo el contador a la direccion base del registro
 	MOVWF	FSR		; muevo el valor para direccionamiento indirecto
@@ -64,7 +68,6 @@ adc_handle:
 	
 	BANKSEL 0
 	BSF	EVENT, RDATA	; datos disponibles
-
 	
 	RETURN
 

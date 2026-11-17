@@ -7,6 +7,16 @@
 ;	Vicente Gauna
 
 ; Descripcion ================================================================================================
+;
+; El modulo de comunicacion serial trabaja en conjunto con el modulo ADC para enviar lecturas periodicas
+; de la señal producida a un dispositivo externo, con el objetivo de corroborar la señal producida a la
+; salida del dispositivo.
+; Este modulo trabaja con interrupciones por TX y la bandera RDATA de EVENT. Cuando hay nuevos datos para
+; enviar, se habilita la comunicacion y se comienzan a leer los valores de un registro rotativo de 32 bytes
+; al cual escribe el adc. Se lee y envia la candidad de valores indicados en DATAN a la vez que este se 
+; decrementa. Si ocurre que el modulo com termina de enviar datos antes de que se reciban datos nuevos,
+; este se deshabilita, a la espera de nuevas lecturas.
+; Usamos una frecuencia de baudios de 19231.
 ; 
 ; ============================================================================================================
 

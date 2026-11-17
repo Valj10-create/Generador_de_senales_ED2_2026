@@ -9,9 +9,9 @@
 ; Descripcion ================================================================================================
 ; 
 ; El módulo DAC produce señales de 1 de 4 tipos posibles: cuadrada, triangular, sinusoidal y diente de sierra
-; en una de 8 posibles frecuencias: 2Hz, 5Hz, 10Hz, 50Hz, 100Hz, 300Hz, 700Hz, 1000Hz.
+; en una de 8 posibles frecuencias: 1Hz, 2.5Hz, 5Hz, 25Hz, 50Hz, 150Hz, 250Hz, 500Hz.
 ; La selección de la forma de onda y la frecuencia se harán a traves del registro SCON (Signal Configuration)
-; en 0x75, al igual que la señal de inicio/stop.
+; al igual que la señal de inicio/stop.
 ;
 ; - SCON [0x75] ------------------------------------------------------------
 ;	bit7	bit6	bit5	bit4	bit3	bit2	bit1	bit0
@@ -22,20 +22,17 @@
 ; encuentran precalculados para cada tipo de señal.
 ; La salida se produce a través del PORTB, donde se encuentran conectados los pines de un DAC R2R, desde
 ; RB0 (LSB) hasta RB7 (MSB).
-; Se usa un cristal oscilador externo de 8MHz
+; Se usa un cristal oscilador externo de 4MHz
 ;
 ; Nota: el hardware utilizado produce un techo en la velocidad de frecuencias que se pueden generar, como
-; 	los ciclos de instruccion del controlador tienen una frecuencia de 2 MHz, es imposible producir
-;	una señal de salida que varie mas rapidamente. Es por esto que establecemos un limite en 1kHz, que
-;	nos deja una ventana de 63 instrucciones entre cambios en la salida.
+; 	los ciclos de instruccion del controlador tienen una frecuencia de 1 MHz, es imposible producir
+;	una señal de salida que varie mas rapidamente. Es por esto que establecemos un limite en 500Hz, que
+;	nos deja una ventana considerable de instrucciones entre cambios en la salida.
 ;
 ; Usaremos las interrupciones por TIMER1 para controlar la frecuencia de las señales. En cada interrupción
 ; aumentamos el contador de instantes de tiempo y buscamos el valor correspondiente en las tablas
 ; precalculadas, pasamos ese valor a PORTB y esperamos a la proxima interrupcion.
 ;
-; 
-; (ver excel)
-; 
 ; ============================================================================================================
 
 	ORG	0X0400
@@ -54,14 +51,14 @@ dac_get_tmr1_prel_l:
 	ANDLW	b'00000111'	; enmascaro para limitar a 8 valores
 	ADDWF	PCL, F 		; incremento program counter
 
-	RETLW	0X11
-	RETLW	0X4F
-	RETLW	0XB9
-	RETLW	0X41
-	RETLW	0XB2
-	RETLW	0X52
-	RETLW	0XC9
-	RETLW	0XE4
+	RETLW	0X11	; 0
+	RETLW	0X4F	; 1
+	RETLW	0XB9	; 2 	
+	RETLW	0X41	; 3
+	RETLW	0XB2	; 4
+	RETLW	0X52	; 5
+	RETLW	0XC9	; 6
+	RETLW	0XE4	; 7
 
 	ORG	0X0410
 ;
@@ -296,7 +293,7 @@ dac_tmr1_handle:
 	CALL	dac_tmr1_reset
 
 	INCF	INST, F
-	MOVF	INST, W	; incremento el contador de intervalos de tiempo en 1
+	MOVF	INST, W		; incremento el contador de intervalos de tiempo en 1
 	
 	CALL	dac_get_func_value		; llamo a la tabla correspondiente para obtener el valor de la funcion
 
